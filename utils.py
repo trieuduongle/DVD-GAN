@@ -83,3 +83,7 @@ def vid_downsample(data):
     _, _, H, W = x.size()
     x = x.view(B, T, C, H, W).permute(0, 2, 1, 3, 4).contiguous()
     return x
+
+def check_dir(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
