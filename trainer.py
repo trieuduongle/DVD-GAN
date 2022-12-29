@@ -89,6 +89,11 @@ class Trainer(object):
 
         self.device, self.parallel, self.gpus = set_device(config)
 
+        target_real_label = 1.0
+        target_fake_label = 0.0
+        self.register_buffer('real_label', torch.tensor(target_real_label).to(self.device))
+        self.register_buffer('fake_label', torch.tensor(target_fake_label).to(self.device))
+
         self.build_model()
 
         if self.use_tensorboard:
@@ -129,13 +134,17 @@ class Trainer(object):
         loss = self.lambda_gp * d_loss_gp
         return loss
 
-    def calc_loss(self, x, real_flag):
-        if real_flag is True:
-            x = -x
-        if self.adv_loss == 'wgan-gp':
-            loss = torch.mean(x)
-        elif self.adv_loss == 'hinge':
-            loss = torch.nn.ReLU()(1.0 + x).mean()
+    def calc_loss(self, x, real_flag, criterion):
+        if self.adv_loss != 'wgan-gp' and self.adv_loss != 'hinge':
+            labels = (self.real_label if real_flag else self.fake_label).expand_as(x)
+            loss = criterion(x, labels)
+        else:
+            if real_flag is True:
+                x = -x
+            if self.adv_loss == 'wgan-gp':
+                loss = torch.mean(x)
+            elif self.adv_loss == 'hinge':
+                loss = torch.nn.ReLU()(1.0 + x).mean()
         return loss
 
     def gen_real_video(self, data_iter):
@@ -262,8 +271,8 @@ class Trainer(object):
                 # ================== Train D_s ================== #
                 ds_out_real = self.D_s(self.merge_temporal_dim_to_batch_dim(batch_y), transpose=False)
                 ds_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y.detach()), transpose=False)
-                ds_loss_real = self.calc_loss(ds_out_real, True)
-                ds_loss_fake = self.calc_loss(ds_out_fake, False)
+                ds_loss_real = self.calc_loss(ds_out_real, True, self.ds_criterion)
+                ds_loss_fake = self.calc_loss(ds_out_fake, False, self.ds_criterion)
 
                 # Backward + Optimize
                 ds_loss = ds_loss_real + ds_loss_fake
@@ -275,8 +284,8 @@ class Trainer(object):
                 # ================== Train D_t ================== #
                 dt_out_real = self.D_t(batch_y)
                 dt_out_fake = self.D_t(pred_y.detach())
-                dt_loss_real = self.calc_loss(dt_out_real, True)
-                dt_loss_fake = self.calc_loss(dt_out_fake, False)
+                dt_loss_real = self.calc_loss(dt_out_real, True, self.dt_criterion)
+                dt_loss_fake = self.calc_loss(dt_out_fake, False, self.dt_criterion)
 
                 # Backward + Optimize
                 dt_loss = dt_loss_real + dt_loss_fake
@@ -313,8 +322,8 @@ class Trainer(object):
             pred_y = self._predict(batch_x)
             g_s_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y), transpose=False)  # Spatial Discrimminator loss
             g_t_out_fake = self.D_t(pred_y)  # Temporal Discriminator loss
-            g_s_loss = self.calc_loss(g_s_out_fake, True)
-            g_t_loss = self.calc_loss(g_t_out_fake, True)
+            g_s_loss = self.calc_loss(g_s_out_fake, True, self.ds_criterion)
+            g_t_loss = self.calc_loss(g_t_out_fake, True, self.dt_criterion)
             non_g_loss = self.g_criterion(pred_y, batch_y)
             g_loss = non_g_loss + self.lambda_d_s * g_s_loss + self.lambda_d_t * g_t_loss
             # g_loss = self.calc_loss(g_s_out_fake, True) + self.calc_loss(g_t_out_fake, True)
@@ -396,6 +405,8 @@ class Trainer(object):
 
         self.c_loss = torch.nn.CrossEntropyLoss()
         self.g_criterion = torch.nn.MSELoss()
+        self.ds_criterion = torch.nn.MSELoss()
+        self.dt_criterion = torch.nn.MSELoss()
 
     def build_tensorboard(self):
         from tensorboardX import SummaryWriter
