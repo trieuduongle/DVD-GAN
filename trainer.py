@@ -233,10 +233,6 @@ class Trainer(object):
             self.D_s.train()
             self.D_t.train()
             self.G.train()
-
-            self.model.train()
-            self.discriminator.train()
-            self.spatial_discriminator.train()
             
             train_pbar = tqdm(self.train_loader)
 
