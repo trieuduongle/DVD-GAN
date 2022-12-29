@@ -508,8 +508,11 @@ class Trainer(object):
     def generate_samples(self, epoch):
         self.G.eval()
 
-        batch_x, batch_y = self.test_loader[0]
         pred_y = self.G(batch_x.to(self.device))
+        # TODO: improve this one
+        for batch_x, batch_y in self.test_loader:
+            pred_y = self.model(batch_x.to(self.device))
+            break
 
         batch_x = batch_x.detach().cpu().numpy()
         batch_y = batch_y.detach().cpu().numpy()
