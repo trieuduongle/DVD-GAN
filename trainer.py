@@ -325,7 +325,7 @@ class Trainer(object):
             self.g_optimizer.step()
             self.g_lr_scher.step()
 
-            step_pbar.set_descrption(f'Step {step}/{self.total_step}, ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {g_loss:.9f}, non_g_loss: {non_g_loss:.9f}')
+            step_pbar.set_description(f'Step {step}/{self.total_step}, ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {g_loss:.9f}, non_g_loss: {non_g_loss:.9f}')
 
             # ==================== print & save part ==================== #
             # Print out log info
