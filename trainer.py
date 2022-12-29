@@ -525,11 +525,11 @@ class Trainer(object):
             self.writer.add_image(f"inputs/Epoch_{epoch}", make_grid(batch_x.data, nrow=self.pre_seq_length), epoch)
             self.writer.add_image(f"outputs/Epoch_{epoch}", make_grid(pred_y.data, nrow=self.aft_seq_length), epoch)
             self.writer.add_image(f"expected/Epoch_{epoch}", make_grid(pred_y.data, nrow=self.aft_seq_length), epoch)
-            save_image(batch_x.data, os.path.join(self.sample_path, epoch, "inputs.png"), nrow=self.pre_seq_length)
-            save_image(outputs_and_expectations.data, os.path.join(self.sample_path, epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
+            save_image(batch_x.data, os.path.join(self.sample_path, str(epoch), "inputs.png"), nrow=self.pre_seq_length)
+            save_image(outputs_and_expectations.data, os.path.join(self.sample_path, str(epoch), "outputs_and_expectations.png"), nrow=self.aft_seq_length)
         else:
-            save_image(batch_x.data, os.path.join(self.sample_path, epoch, "inputs.png"), nrow=self.pre_seq_length)
-            save_image(outputs_and_expectations.data, os.path.join(self.sample_path, epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
+            save_image(batch_x.data, os.path.join(self.sample_path, str(epoch), "inputs.png"), nrow=self.pre_seq_length)
+            save_image(outputs_and_expectations.data, os.path.join(self.sample_path, str(epoch), "outputs_and_expectations.png"), nrow=self.aft_seq_length)
         self.G.train()
     
     def get_target_label(self, input, target_is_real):
