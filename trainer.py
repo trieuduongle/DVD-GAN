@@ -334,7 +334,7 @@ class Trainer(object):
                 train_pbar.set_description(
                     f"""ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {loss:.9f}, non_g_loss: {non_g_loss:.9f}""")
 
-
+                step = step + 1
                 if step == 10:
                     break
 
