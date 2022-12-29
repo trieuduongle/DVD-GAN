@@ -1,1 +1,2 @@
 hickle==5.0.2
+tensorboardX==2.5.1

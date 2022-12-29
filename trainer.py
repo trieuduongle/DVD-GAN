@@ -313,7 +313,7 @@ class Trainer(object):
             g_t_out_fake = self.D_t(pred_y)  # Temporal Discriminator loss
             g_s_loss = self.calc_loss(g_s_out_fake, True)
             g_t_loss = self.calc_loss(g_t_out_fake, True)
-            non_g_loss = torch.nn.MSELoss(pred_y, batch_y)
+            non_g_loss = self.g_criterion(pred_y, batch_y)
             g_loss = non_g_loss + self.lambda_d_s * g_s_loss + self.lambda_d_t * g_t_loss
             # g_loss = self.calc_loss(g_s_out_fake, True) + self.calc_loss(g_t_out_fake, True)
 
@@ -383,6 +383,7 @@ class Trainer(object):
         self.select_opt_schr()
 
         self.c_loss = torch.nn.CrossEntropyLoss()
+        self.g_criterion = torch.nn.MSELoss()
 
     def build_tensorboard(self):
         from tensorboardX import SummaryWriter
