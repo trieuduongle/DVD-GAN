@@ -6,7 +6,8 @@ if [[ $1 == "local" ]]; then
   var="python3.6 main.py --adv_loss hinge --parallel True --gpus 0 1 --num_workers 8 \
   --use_tensorboard True --ds_chn 32 --dt_chn 32 --g_chn 32 --n_frames 8 --k_sample 4 --batch_size 32 \
   --g_lr 5e-4 \
-  --d_lr 5e-5 \
+  --ds_lr 5e-5 \
+  --dt_lr 5e-5 \
   --n_class 1 \
   --lr_schr const \
   --n_class 2
@@ -41,7 +42,7 @@ elif [[ ($1 == "vllab2") || ($1 == "vllab3") ]]; then
   --log_path /tmp3/potter/outputs/logs \
   --model_save_path /tmp3/potter/outputs/models \
   --sample_path /tmp3/potter/outputs/samples \
-  --g_lr 4e-5 --d_lr 4e-5 \
+  --g_lr 4e-5 --ds_lr 4e-5 --dt_lr 4e-5 \
   --lr_schr multi
   "
   echo $var

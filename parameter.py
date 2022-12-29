@@ -29,7 +29,8 @@ def get_parameters():
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--num_workers', type=int, default=8)
     parser.add_argument('--g_lr', type=float, default=5e-5)
-    parser.add_argument('--d_lr', type=float, default=5e-5)
+    parser.add_argument('--ds_lr', type=float, default=5e-5)
+    parser.add_argument('--dt_lr', type=float, default=5e-5)
     parser.add_argument('--lr_decay', type=float, default=0.9999)
     parser.add_argument('--beta1', type=float, default=0.0)
     parser.add_argument('--beta2', type=float, default=0.9)
@@ -73,6 +74,31 @@ def get_parameters():
     parser.add_argument('--initial_scale', type=float, default=1.0) 
     parser.add_argument('--n_scales', type=int, default=5)
     parser.add_argument('--scale_step', type=float, default=0.84089641525)
+
+
+    # CUSTOM SECTION
+
+    # model parameters
+    parser.add_argument('--in_shape', default=[10, 1, 64, 64], type=int,nargs='*') # [10, 1, 64, 64] for mmnist, [4, 2, 32, 32] for taxibj, [10, 1, 128, 128] for kth  
+    parser.add_argument('--image_channels', default=1, type=int, help='Image channels, default will be 1 - grayscale image')
+    parser.add_argument('--hid_S', default=64, type=int)
+    parser.add_argument('--hid_T', default=256, type=int)
+    parser.add_argument('--N_S', default=4, type=int)
+    parser.add_argument('--N_T', default=8, type=int)
+    parser.add_argument('--groups', default=4, type=int)
+    parser.add_argument('--pre_seq_length', default=10, type=int)
+    parser.add_argument('--aft_seq_length', default=20, type=int)
+
+    parser.add_argument('--lr', default=0.01, type=float, help='Learning rate')
+    parser.add_argument('--lr_D_S', default=1e-4, type=float)
+    parser.add_argument('--lr_D_T', default=1e-4, type=float)
+    parser.add_argument('--lambda_d_s', default=5e-3, type=float)
+    parser.add_argument('--lambda_d_t', default=5e-3, type=float)
+
+    # dataset parameters
+    parser.add_argument('--val_batch_size', default=16, type=int, help='Batch size')
+    parser.add_argument('--data_root', default='./data/')
+    parser.add_argument('--dataname', default='mmnist', choices=['mmnist', 'taxibj', 'kth'])
 
     config = parser.parse_args()
 

@@ -1,180 +1,108 @@
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
+from Module.Modules import ConvSC, Inception
 
-from tensorboardX import SummaryWriter
+def stride_generator(N, reverse=False):
+    strides = [1, 2]*10
+    if reverse: return list(reversed(strides[:N]))
+    else: return strides[:N]
 
-from Module.GResBlock import GResBlock
-from Module.Normalization import SpectralNorm
-from Module.ConvGRU import ConvGRU
-from Module.Attention import SelfAttention, SeparableAttn
-# from Module.CrossReplicaBN import ScaledCrossReplicaBatchNorm2d
+class Encoder(nn.Module):
+    def __init__(self,C_in, C_hid, N_S):
+        super(Encoder,self).__init__()
+        strides = stride_generator(N_S)
+        self.enc = nn.Sequential(
+            ConvSC(C_in, C_hid, stride=strides[0]),
+            *[ConvSC(C_hid, C_hid, stride=s) for s in strides[1:]]
+        )
+    
+    def forward(self,x):# B*4, 3, 128, 128
+        enc1 = self.enc[0](x)
+        latent = enc1
+        for i in range(1,len(self.enc)):
+            latent = self.enc[i](latent)
+        return latent,enc1
+
+
+class Decoder(nn.Module):
+    def __init__(self,C_hid, C_out, N_S):
+        super(Decoder,self).__init__()
+        strides = stride_generator(N_S, reverse=True)
+        self.dec = nn.Sequential(
+            *[ConvSC(C_hid, C_hid, stride=s, transpose=True) for s in strides[:-1]],
+            ConvSC(2*C_hid, C_hid, stride=strides[-1], transpose=True)
+        )
+        self.readout = nn.Conv2d(C_hid, C_out, 1)
+    
+    def forward(self, hid, enc1=None):
+        for i in range(0,len(self.dec)-1):
+            hid = self.dec[i](hid)
+        Y = self.dec[-1](torch.cat([hid, enc1], dim=1))
+        Y = self.readout(Y)
+        return Y
+
+class Mid_Xnet(nn.Module):
+    def __init__(self, channel_in, channel_hid, N_T, incep_ker = [3,5,7,11], groups=8):
+        super(Mid_Xnet, self).__init__()
+
+        self.N_T = N_T
+        enc_layers = [Inception(channel_in, channel_hid//2, channel_hid, incep_ker= incep_ker, groups=groups)]
+        for i in range(1, N_T-1):
+            enc_layers.append(Inception(channel_hid, channel_hid//2, channel_hid, incep_ker= incep_ker, groups=groups))
+        enc_layers.append(Inception(channel_hid, channel_hid//2, channel_hid, incep_ker= incep_ker, groups=groups))
+
+        dec_layers = [Inception(channel_hid, channel_hid//2, channel_hid, incep_ker= incep_ker, groups=groups)]
+        for i in range(1, N_T-1):
+            dec_layers.append(Inception(2*channel_hid, channel_hid//2, channel_hid, incep_ker= incep_ker, groups=groups))
+        dec_layers.append(Inception(2*channel_hid, channel_hid//2, channel_in, incep_ker= incep_ker, groups=groups))
+
+        self.enc = nn.Sequential(*enc_layers)
+        self.dec = nn.Sequential(*dec_layers)
+
+    def forward(self, x):
+        B, T, C, H, W = x.shape
+        x = x.reshape(B, T*C, H, W)
+
+        # encoder
+        skips = []
+        z = x
+        for i in range(self.N_T):
+            z = self.enc[i](z)
+            if i < self.N_T - 1:
+                skips.append(z)
+
+        # decoder
+        z = self.dec[0](z)
+        for i in range(1, self.N_T):
+            z = self.dec[i](torch.cat([z, skips[-i]], dim=1))
+
+        y = z.reshape(B, T, C, H, W)
+        return y
 
 class Generator(nn.Module):
 
-    def __init__(self, in_dim=120, latent_dim=4, n_class=4, ch=32, n_frames=48, hierar_flag=False):
-        super().__init__()
-
-        self.in_dim = in_dim
-        self.latent_dim = latent_dim
-        self.n_class = n_class
-        self.ch = ch
-        self.hierar_flag = hierar_flag
-        self.n_frames = n_frames
-
-        self.embedding = nn.Embedding(n_class, in_dim)
-
-        self.affine_transfrom = nn.Linear(in_dim * 2, latent_dim * latent_dim * 8 * ch)
-
-        # self.self_attn = SelfAttention(8 * ch)
-
-        # self.conv = nn.ModuleList([GResBlock(8 * ch, 8 * ch, n_class=in_dim * 2),
-        #                            GResBlock(8 * ch, 8 * ch, n_class=in_dim * 2),
-        #                            GResBlock(8 * ch, 4 * ch, n_class=in_dim * 2),
-        #                            SeparableAttn(4 * ch),
-        #                            GResBlock(4 * ch, 2 * ch, n_class=in_dim * 2)])
-        # self.convGRU = ConvGRU(8 * ch, hidden_sizes=[8 * ch, 16 * ch, 8 * ch], kernel_sizes=[3, 5, 3], n_layers=3)
-
-        self.conv = nn.ModuleList([
-            ConvGRU(8 * ch, hidden_sizes=[8 * ch, 16 * ch, 8 * ch], kernel_sizes=[3, 5, 3], n_layers=3),
-            # ConvGRU(8 * ch, hidden_sizes=[8 * ch, 8 * ch], kernel_sizes=[3, 3], n_layers=2),
-            GResBlock(8 * ch, 8 * ch, n_class=in_dim * 2, upsample_factor=1),
-            GResBlock(8 * ch, 8 * ch, n_class=in_dim * 2),
-            ConvGRU(8 * ch, hidden_sizes=[8 * ch, 16 * ch, 8 * ch], kernel_sizes=[3, 5, 3], n_layers=3),
-            # ConvGRU(8 * ch, hidden_sizes=[8 * ch, 8 * ch], kernel_sizes=[3, 3], n_layers=2),
-            GResBlock(8 * ch, 8 * ch, n_class=in_dim * 2, upsample_factor=1),
-            GResBlock(8 * ch, 8 * ch, n_class=in_dim * 2),
-            ConvGRU(8 * ch, hidden_sizes=[8 * ch, 16 * ch, 8 * ch], kernel_sizes=[3, 5, 3], n_layers=3),
-            # ConvGRU(8 * ch, hidden_sizes=[8 * ch, 8 * ch], kernel_sizes=[3, 3], n_layers=2),
-            GResBlock(8 * ch, 8 * ch, n_class=in_dim * 2, upsample_factor=1),
-            GResBlock(8 * ch, 4 * ch, n_class=in_dim * 2),
-            ConvGRU(4 * ch, hidden_sizes=[4 * ch, 8 * ch, 4 * ch], kernel_sizes=[3, 5, 5], n_layers=3),
-            # ConvGRU(4 * ch, hidden_sizes=[4 * ch, 4 * ch], kernel_sizes=[3, 5], n_layers=2),
-            GResBlock(4 * ch, 4 * ch, n_class=in_dim * 2, upsample_factor=1),
-            GResBlock(4 * ch, 2 * ch, n_class=in_dim * 2)
-        ])
-
-        # TODO impl ScaledCrossReplicaBatchNorm
-        # self.ScaledCrossReplicaBN = ScaledCrossReplicaBatchNorm2d(1 * chn)
-
-        self.colorize = SpectralNorm(nn.Conv2d(2 * ch, 3, kernel_size=(3, 3), padding=1))
+    def __init__(self, shape_in, hid_S=16, hid_T=256, N_S=4, N_T=8, incep_ker=[3,5,7,11], groups=8):
+        super(Generator, self).__init__()
+        T, C, H, W = shape_in
+        self.enc = Encoder(C, hid_S, N_S)
+        self.hid = Mid_Xnet(T*hid_S, hid_T, N_T, incep_ker, groups)
+        self.dec = Decoder(hid_S, C, N_S)
 
 
-    def forward(self, x, class_id):
+    def forward(self, x_raw):
+        B, T, C, H, W = x_raw.shape
+        x = x_raw.view(B*T, C, H, W)
 
-        if self.hierar_flag is True:
-            noise_emb = torch.split(x, self.in_dim, dim=1)
-        else:
-            noise_emb = x
+        embed, skip = self.enc(x)
+        _, C_, H_, W_ = embed.shape
 
-        class_emb = self.embedding(class_id)
+        z = embed.view(B, T, C_, H_, W_)
+        hid = self.hid(z)
+        hid = hid.reshape(B*T, C_, H_, W_)
 
-        if self.hierar_flag is True:
-            y = self.affine_transfrom(torch.cat((noise_emb[0], class_emb), dim=1)) # B x (2 x ld x ch)
-        else:
-            y = self.affine_transfrom(torch.cat((noise_emb, class_emb), dim=1)) # B x (2 x ld x ch)
-
-        y = y.view(-1, 8 * self.ch, self.latent_dim, self.latent_dim) # B x ch x ld x ld
-
-        for k, conv in enumerate(self.conv):
-            if isinstance(conv, ConvGRU):
-
-                if k > 0:
-                    _, C, W, H = y.size()
-                    y = y.view(-1, self.n_frames, C, W, H).contiguous()
-
-                frame_list = []
-                for i in range(self.n_frames):
-                    if k == 0:
-                        if i == 0:
-                            frame_list.append(conv(y))  # T x [B x ch x ld x ld]
-                        else:
-                            frame_list.append(conv(y, frame_list[i - 1]))
-                    else:
-                        if i == 0:
-                            frame_list.append(conv(y[:,0,:,:,:].squeeze(1)))  # T x [B x ch x ld x ld]
-                        else:
-                            frame_list.append(conv(y[:,i,:,:,:].squeeze(1), frame_list[i - 1]))
-                frame_hidden_list = []
-                for i in frame_list:
-                    frame_hidden_list.append(i[-1].unsqueeze(0))
-                y = torch.cat(frame_hidden_list, dim=0) # T x B x ch x ld x ld
-
-                y = y.permute(1, 0, 2, 3, 4).contiguous() # B x T x ch x ld x ld
-                # print(y.size())
-                B, T, C, W, H = y.size()
-                y = y.view(-1, C, W, H)
-
-            elif isinstance(conv, GResBlock):
-                condition = torch.cat([noise_emb, class_emb], dim=1)
-                condition = condition.repeat(self.n_frames,1)
-                y = conv(y, condition) # BT, C, W, H
-
-        y = F.relu(y)
-        y = self.colorize(y)
-        y = torch.tanh(y)
-
-        BT, C, W, H = y.size()
-        y = y.view(-1, self.n_frames, C, W, H) # B, T, C, W, H
-
-        return y
-
-        # if torch.cuda.is_available():
-        #     frame_list = torch.empty((0,)).cuda()  # initialization similar to frame_list = []
-        # else:
-        #     frame_list = torch.empty((0,))
-        #
-        # for i in range(self.n_frames):
-        #     if i == 0:
-        #         frame_list = self.convGRU(y) # T x [B x ch x ld x ld]
-        #     else:
-        #         frame_list = torch.stack((frame_list, self.convGRU(y, frame_list[i-1])))
-        #
-        # frame_hidden_list = torch.empty((0,)).cuda()
-        # for i in frame_list.size()[0]:
-        #     if i == 0:
-        #         frame_hidden_list = 1
-        #     frame_hidden_list.append(i[-1].unsqueeze(0))
-
-        # frame_list = []
-        # for i in range(self.n_frames):
-        #     if i == 0:
-        #         frame_list.append(self.convGRU(y))  # T x [B x ch x ld x ld]
-        #     else:
-        #         frame_list.append(self.convGRU(y, frame_list[i - 1]))
-        #
-        # frame_hidden_list = []
-        # for i in frame_list:
-        #     frame_hidden_list.append(i[-1].unsqueeze(0))
-        # y = torch.cat(frame_hidden_list, dim=0) # T x B x ch x ld x ld
-        # y = y.permute(1, 2, 0, 3, 4) # B x ch x T x ld x ld
-        # y = self.self_attn(y)  # B x ch x T x ld x ld
-        #
-        # y = y.permute(0, 2, 1, 3, 4).contiguous() # B x T x ch x ld x ld
-        #
-        # # the time axis is folded into the batch axis before the forward pass, which applying ResNet to all frames indivudually
-        # y = y.view(-1, 8 * self.ch, self.latent_dim, self.latent_dim) # (B x T) x ch x ld x ld
-        #
-        # frame = y
-        # for j, conv in enumerate(self.conv):
-        #     if isinstance(conv, GResBlock):
-        #         condition = torch.cat([noise_emb, class_emb], dim=1)
-        #         condition = condition.repeat(self.n_frames, 1)
-        #         frame = conv(frame, condition)
-        #     else:
-        #         BT, C, W, H = frame.size()
-        #         frame = frame.view(-1, self.n_frames, C, W, H).transpose(2, 1) # B, C, T, W, H
-        #         frame = conv(frame)
-        #         frame = frame.permute(0, 2, 1, 3, 4).contiguous().view(-1, C, W, H) # BT, C, W, H
-        #
-        # frame = F.relu(frame)
-        # frame = self.colorize(frame)
-        # frame = torch.tanh(frame)
-        #
-        # BT, C, W, H = frame.size()
-        # frame = frame.view(-1, self.n_frames, C, W, H) # B, T, C, W, H
-
-        # return frame
+        Y = self.dec(hid, skip)
+        Y = Y.reshape(B, T, C, H, W)
+        return Y
 
 
 if __name__ == "__main__":
