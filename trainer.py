@@ -512,10 +512,6 @@ class Trainer(object):
         for batch_x, batch_y in self.test_loader:
             pred_y = self.G(batch_x.to(self.device))
             break
-
-        batch_x = batch_x.detach().cpu().numpy()
-        batch_y = batch_y.detach().cpu().numpy()
-        pred_y = pred_y.detach().cpu().numpy()
         
         outputs_and_expectations = torch.cat((pred_y, batch_y), 0)
 
