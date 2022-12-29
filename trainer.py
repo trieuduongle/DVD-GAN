@@ -15,10 +15,10 @@ from metrics import *
 
 
 class Trainer(object):
-    def __init__(self, data_loader, val_loader, test_loader, config):
+    def __init__(self, train_loader, val_loader, test_loader, config):
 
         # Data loader
-        self.data_loader = data_loader
+        self.train_loader = train_loader
         self.val_loader = val_loader
         self.test_loader = test_loader
 
@@ -151,7 +151,7 @@ class Trainer(object):
         try:
             real_videos, real_labels = next(data_iter)
         except:
-            data_iter = iter(self.data_loader)
+            data_iter = iter(self.train_loader)
             real_videos, real_labels = next(data_iter)
             self.epoch += 1
 
