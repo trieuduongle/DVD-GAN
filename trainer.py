@@ -89,10 +89,8 @@ class Trainer(object):
 
         self.device, self.parallel, self.gpus = set_device(config)
 
-        target_real_label = 1.0
-        target_fake_label = 0.0
-        self.register_buffer('real_label', torch.tensor(target_real_label).to(self.device))
-        self.register_buffer('fake_label', torch.tensor(target_fake_label).to(self.device))
+        self.real_label_val = 1.0
+        self.fake_label_val = 0.0
 
         self.build_model()
 
@@ -136,7 +134,8 @@ class Trainer(object):
 
     def calc_loss(self, x, real_flag, criterion):
         if self.adv_loss != 'wgan-gp' and self.adv_loss != 'hinge':
-            labels = (self.real_label if real_flag else self.fake_label).expand_as(x)
+
+            labels = self.get_target_label(x, real_flag)
             loss = criterion(x, labels)
         else:
             if real_flag is True:
@@ -502,3 +501,19 @@ class Trainer(object):
             save_image(batch_x.data, os.path.join(self.sample_path, epoch, "inputs.png"), nrow=self.pre_seq_length)
             save_image(outputs_and_expectations.data, os.path.join(self.sample_path, epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
         self.G.train()
+    
+    def get_target_label(self, input, target_is_real):
+        """Get target label.
+        Args:
+            input (Tensor): Input tensor.
+            target_is_real (bool): Whether the target is real or fake.
+        Returns:
+            (bool | Tensor): Target tensor. Return bool for wgan, otherwise,
+                return Tensor.
+        """
+
+        if self.adv_loss in ['wgan', 'wgan_softplus', 'wgan-gp']:
+            return target_is_real
+        target_val = (
+            self.real_label_val if target_is_real else self.fake_label_val)
+        return input.new_ones(input.size()) * target_val
