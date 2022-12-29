@@ -512,18 +512,22 @@ class Trainer(object):
         for batch_x, batch_y in self.test_loader:
             pred_y = self.G(batch_x.to(self.device))
             break
+
+        batch_x = batch_x.detach().cpu().numpy()
+        batch_y = batch_y.detach().cpu().numpy()
+        pred_y = pred_y.detach().cpu().numpy()
         
-        outputs_and_expectations = torch.cat((pred_y, batch_y), 0)
+        outputs_and_expectations = np.concatenate((pred_y, batch_y), 0)
 
         if self.use_tensorboard is True:
-            self.writer.add_image(f"inputs/Epoch_{epoch}", make_grid(batch_x.data, nrow=self.pre_seq_length), epoch)
-            self.writer.add_image(f"outputs/Epoch_{epoch}", make_grid(pred_y.data, nrow=self.aft_seq_length), epoch)
-            self.writer.add_image(f"expected/Epoch_{epoch}", make_grid(pred_y.data, nrow=self.aft_seq_length), epoch)
-            save_image(batch_x.data, os.path.join(self.sample_path, epoch, "inputs.png"), nrow=self.pre_seq_length)
-            save_image(outputs_and_expectations.data, os.path.join(self.sample_path, epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
+            self.writer.add_image(f"inputs/Epoch_{epoch}", make_grid(batch_x, nrow=self.pre_seq_length), epoch)
+            self.writer.add_image(f"outputs/Epoch_{epoch}", make_grid(pred_y, nrow=self.aft_seq_length), epoch)
+            self.writer.add_image(f"expected/Epoch_{epoch}", make_grid(pred_y, nrow=self.aft_seq_length), epoch)
+            save_image(batch_x, os.path.join(self.sample_path, epoch, "inputs.png"), nrow=self.pre_seq_length)
+            save_image(outputs_and_expectations, os.path.join(self.sample_path, epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
         else:
-            save_image(batch_x.data, os.path.join(self.sample_path, epoch, "inputs.png"), nrow=self.pre_seq_length)
-            save_image(outputs_and_expectations.data, os.path.join(self.sample_path, epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
+            save_image(batch_x, os.path.join(self.sample_path, epoch, "inputs.png"), nrow=self.pre_seq_length)
+            save_image(outputs_and_expectations, os.path.join(self.sample_path, epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
         self.G.train()
     
     def get_target_label(self, input, target_is_real):
