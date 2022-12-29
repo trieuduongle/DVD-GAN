@@ -236,7 +236,7 @@ class Trainer(object):
             self.G.train()
             
             train_pbar = tqdm(self.train_loader)
-
+            step = 0
             for batch_x, batch_y in train_pbar:
                 batch_x = batch_x.to(self.device)
                 batch_y = batch_y.to(self.device)
@@ -333,6 +333,10 @@ class Trainer(object):
 
                 train_pbar.set_description(
                     f"""ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {loss:.9f}, non_g_loss: {non_g_loss:.9f}""")
+
+
+                if step == 10:
+                    break
 
             # ==================== print & save part ==================== #
             # Print out log info
