@@ -219,6 +219,18 @@ class Trainer(object):
         for epoch in range(start, self.total_epoch):
             start_time = time.time()
 
+            list_ds_loss_real = []
+            list_ds_loss_fake = []
+            list_ds_loss = []
+            list_dt_loss_real = []
+            list_dt_loss_fake = []
+            list_dt_loss = []
+            list_g_s_loss = []
+            list_g_t_loss = []
+            list_g_loss = []
+            list_non_g_loss = []
+            list_loss = []
+
             self.D_s.train()
             self.D_t.train()
             self.G.train()
@@ -244,6 +256,11 @@ class Trainer(object):
 
                     # Backward + Optimize
                     ds_loss = ds_loss_real + ds_loss_fake
+
+                    list_ds_loss.append(ds_loss)
+                    list_ds_loss_real.append(ds_loss_real)
+                    list_ds_loss_fake.append(ds_loss_fake)
+
                     self.reset_grad()
                     ds_loss.backward()
                     self.ds_optimizer.step()
@@ -257,6 +274,11 @@ class Trainer(object):
 
                     # Backward + Optimize
                     dt_loss = dt_loss_real + dt_loss_fake
+
+                    list_dt_loss_real.append(dt_loss_real)
+                    list_dt_loss_fake.append(dt_loss_fake)
+                    list_dt_loss.append(dt_loss)
+
                     self.reset_grad()
                     dt_loss.backward()
                     self.dt_optimizer.step()
@@ -292,21 +314,41 @@ class Trainer(object):
                 g_t_out_fake = self.D_t(pred_y)  # Temporal Discriminator loss
                 g_s_loss = self.calc_loss(g_s_out_fake, True, self.ds_criterion)
                 g_t_loss = self.calc_loss(g_t_out_fake, True, self.dt_criterion)
+                g_loss = self.lambda_d_s * g_s_loss + self.lambda_d_t * g_t_loss
                 non_g_loss = self.g_criterion(pred_y, batch_y)
-                g_loss = non_g_loss + self.lambda_d_s * g_s_loss + self.lambda_d_t * g_t_loss
+                loss = non_g_loss + g_loss
+
+                list_g_s_loss.append(g_s_loss)
+                list_g_t_loss.append(g_t_loss)
+                list_g_loss.append(g_loss)
+                list_non_g_loss.append(non_g_loss)
+                list_loss.append(loss)
                 # g_loss = self.calc_loss(g_s_out_fake, True) + self.calc_loss(g_t_out_fake, True)
 
                 # Backward + Optimize
                 self.reset_grad()
-                g_loss.backward()
+                loss.backward()
                 self.g_optimizer.step()
                 self.g_lr_scher.step()
 
                 train_pbar.set_description(
-                    f"""ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {g_loss:.9f}, non_g_loss: {non_g_loss:.9f}""")
+                    f"""ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {loss:.9f}, non_g_loss: {non_g_loss:.9f}""")
 
             # ==================== print & save part ==================== #
             # Print out log info
+
+            ds_loss_real = np.average(list_ds_loss_real)
+            ds_loss_fake = np.average(list_ds_loss_fake)
+            ds_loss = np.average(list_ds_loss)
+            dt_loss_real = np.average(list_dt_loss_real)
+            dt_loss_fake = np.average(list_dt_loss_fake)
+            dt_loss = np.average(list_dt_loss)
+            g_s_loss = np.average(list_g_s_loss)
+            g_t_loss = np.average(list_g_t_loss)
+            g_loss = np.average(list_g_loss)
+            non_g_loss = np.average(list_non_g_loss)
+            loss = np.average(list_loss)
+
             if epoch % self.log_epoch == 0:
                 self.vali()
 
@@ -314,11 +356,11 @@ class Trainer(object):
                 elapsed = str(datetime.timedelta(seconds=elapsed))
                 start_time = time.time()
 
-                log_str = "Epoch: [%d/%d], time: %s, ds_loss: %.9f, dt_loss: %.9f, g_s_loss: %.9f, g_t_loss: %.9f, g_loss: %.9f, non_g_loss: %.9f, lr: %.2e, ds_lr: %.2e, dt_lr: %.2e" % \
-                    (epoch, self.total_epoch, elapsed, ds_loss, dt_loss, g_s_loss, g_t_loss, g_loss, non_g_loss, self.g_lr_scher.get_lr()[0], self.ds_lr_scher.get_lr()[0], self.dt_lr_scher.get_lr()[0])
+                log_str = "Epoch: [%d/%d], time: %s, ds_loss: %.9f, dt_loss: %.9f, g_s_loss: %.9f, g_t_loss: %.9f, g_loss: %.9f, non_g_loss: %.9f, loss: %.9f, lr: %.2e, ds_lr: %.2e, dt_lr: %.2e" % \
+                    (epoch, self.total_epoch, elapsed, ds_loss, dt_loss, g_s_loss, g_t_loss, g_loss, non_g_loss, loss, self.g_lr_scher.get_lr()[0], self.ds_lr_scher.get_lr()[0], self.dt_lr_scher.get_lr()[0])
 
                 if self.use_tensorboard is True:
-                    write_log(self.writer, log_str, ds_loss_real, ds_loss_fake, ds_loss, dt_loss_real, dt_loss_fake, dt_loss, g_loss)
+                    write_log(self.writer, log_str, ds_loss_real, ds_loss_fake, ds_loss, dt_loss_real, dt_loss_fake, dt_loss, g_loss, non_g_loss, loss)
                 print(log_str)
 
             # Sample images
