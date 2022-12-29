@@ -146,17 +146,6 @@ class Trainer(object):
                 loss = torch.nn.ReLU()(1.0 + x).mean()
         return loss
 
-    def gen_real_video(self, data_iter):
-
-        try:
-            real_videos, real_labels = next(data_iter)
-        except:
-            data_iter = iter(self.train_loader)
-            real_videos, real_labels = next(data_iter)
-            self.epoch += 1
-
-        return real_videos.to(self.device), real_labels.to(self.device)
-
     def select_opt_schr(self):
 
         self.g_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.G.parameters()), self.g_lr,
@@ -323,42 +312,42 @@ class Trainer(object):
                         non_g_loss: {non_g_loss:.9f}
                     """)
 
-                # ==================== print & save part ==================== #
-                # Print out log info
-                if epoch % self.log_epoch == 0:
-                    self.vali()
+            # ==================== print & save part ==================== #
+            # Print out log info
+            if epoch % self.log_epoch == 0:
+                self.vali()
 
-                    elapsed = time.time() - start_time
-                    elapsed = str(datetime.timedelta(seconds=elapsed))
-                    start_time = time.time()
+                elapsed = time.time() - start_time
+                elapsed = str(datetime.timedelta(seconds=elapsed))
+                start_time = time.time()
 
-                    log_str = "Epoch: [%d/%d], time: %s, ds_loss: %.9f, dt_loss: %.9f, g_s_loss: %.9f, g_t_loss: %.9f, g_loss: %.9f, non_g_loss: %.9f, lr: %.2e, ds_lr: %.2e, dt_lr: %.2e" % \
-                        (self.epoch, self.total_epoch, elapsed, ds_loss, dt_loss, g_s_loss, g_t_loss, g_loss, non_g_loss, self.g_lr_scher.get_lr()[0], self.ds_lr_scher.get_lr()[0], self.dt_lr_scher.get_lr()[0])
+                log_str = "Epoch: [%d/%d], time: %s, ds_loss: %.9f, dt_loss: %.9f, g_s_loss: %.9f, g_t_loss: %.9f, g_loss: %.9f, non_g_loss: %.9f, lr: %.2e, ds_lr: %.2e, dt_lr: %.2e" % \
+                    (epoch, self.total_epoch, elapsed, ds_loss, dt_loss, g_s_loss, g_t_loss, g_loss, non_g_loss, self.g_lr_scher.get_lr()[0], self.ds_lr_scher.get_lr()[0], self.dt_lr_scher.get_lr()[0])
 
-                    if self.use_tensorboard is True:
-                        write_log(self.writer, log_str, ds_loss_real, ds_loss_fake, ds_loss, dt_loss_real, dt_loss_fake, dt_loss, g_loss)
-                    print(log_str)
+                if self.use_tensorboard is True:
+                    write_log(self.writer, log_str, ds_loss_real, ds_loss_fake, ds_loss, dt_loss_real, dt_loss_fake, dt_loss, g_loss)
+                print(log_str)
 
-                # Sample images
-                if epoch % self.sample_epoch == 0:
-                    self.generate_samples(epoch)
+            # Sample images
+            if epoch % self.sample_epoch == 0:
+                self.generate_samples(epoch)
 
-                # Save model
-                if epoch % self.model_save_epoch == 0:
-                    torch.save(self.G.state_dict(),
-                            os.path.join(self.model_save_path, '{}_G.pth'.format(epoch)))
-                    torch.save(self.g_optimizer.state_dict(),
-                            os.path.join(self.model_save_path, '{}_G_optimizer.pth'.format(epoch)))
+            # Save model
+            if epoch % self.model_save_epoch == 0:
+                torch.save(self.G.state_dict(),
+                        os.path.join(self.model_save_path, '{}_G.pth'.format(epoch)))
+                torch.save(self.g_optimizer.state_dict(),
+                        os.path.join(self.model_save_path, '{}_G_optimizer.pth'.format(epoch)))
 
-                    torch.save(self.D_s.state_dict(),
-                            os.path.join(self.model_save_path, '{}_Ds.pth'.format(epoch)))
-                    torch.save(self.ds_optimizer.state_dict(),
-                            os.path.join(self.model_save_path, '{}_Ds_optimizer.pth'.format(epoch)))
+                torch.save(self.D_s.state_dict(),
+                        os.path.join(self.model_save_path, '{}_Ds.pth'.format(epoch)))
+                torch.save(self.ds_optimizer.state_dict(),
+                        os.path.join(self.model_save_path, '{}_Ds_optimizer.pth'.format(epoch)))
 
-                    torch.save(self.D_t.state_dict(),
-                            os.path.join(self.model_save_path, '{}_Dt.pth'.format(epoch)))
-                    torch.save(self.dt_optimizer.state_dict(),
-                            os.path.join(self.model_save_path, '{}_Dt_optimizer.pth'.format(epoch)))
+                torch.save(self.D_t.state_dict(),
+                        os.path.join(self.model_save_path, '{}_Dt.pth'.format(epoch)))
+                torch.save(self.dt_optimizer.state_dict(),
+                        os.path.join(self.model_save_path, '{}_Dt_optimizer.pth'.format(epoch)))
 
     def build_model(self):
 
