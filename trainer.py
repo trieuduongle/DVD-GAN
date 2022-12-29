@@ -327,12 +327,11 @@ class Trainer(object):
 
             step_pbar.set_description(
                 f"""
-                    Step {step}/{self.total_step}, \n
-                    ds_loss: {ds_loss:.9f}, \n
-                    dt_loss: {dt_loss:.9f}, \n
-                    g_s_loss: {g_s_loss:.9f}, \n
-                    g_t_loss: {g_t_loss:.9f}, \n
-                    g_loss: {g_loss:.9f}, \n
+                    ds_loss: {ds_loss:.9f},
+                    dt_loss: {dt_loss:.9f},
+                    g_s_loss: {g_s_loss:.9f},
+                    g_t_loss: {g_t_loss:.9f},
+                    g_loss: {g_loss:.9f},
                     non_g_loss: {non_g_loss:.9f}
                 """)
 
