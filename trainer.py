@@ -237,7 +237,9 @@ class Trainer(object):
         self.D_t.train()
         self.G.train()
 
-        for step in range(start, self.total_step + 1):
+        step_pbar = tqdm(range(start, self.total_step + 1))
+
+        for step in step_pbar:
 
             # real_videos, real_labels = self.gen_real_video(data_iter)
             try:
@@ -322,6 +324,8 @@ class Trainer(object):
             g_loss.backward()
             self.g_optimizer.step()
             self.g_lr_scher.step()
+
+            step_pbar.set_descrption(f'Step {step}/{self.total_step}, ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {g_loss:.9f}, non_g_loss: {non_g_loss:.9f}')
 
             # ==================== print & save part ==================== #
             # Print out log info
@@ -460,7 +464,7 @@ class Trainer(object):
             list(map(lambda data, lst: lst.append(data.detach().cpu().numpy()), [
                  pred_y, batch_y], [preds_lst, trues_lst]))
 
-            loss = self.criterion(pred_y, batch_y)
+            loss = self.g_criterion(pred_y, batch_y)
             val_pbar.set_description(
                 'vali loss: {:.4f}'.format(loss.mean().item()))
             total_loss.append(loss.mean().item())
