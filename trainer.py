@@ -85,6 +85,7 @@ class Trainer(object):
         self.aft_seq_length = config.aft_seq_length
         self.lambda_d_s = config.lambda_d_s
         self.lambda_d_t = config.lambda_d_t
+        self.image_channels = config.image_channels
 
         self.device, self.parallel, self.gpus = set_device(config)
 
