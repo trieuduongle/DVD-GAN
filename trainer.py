@@ -364,7 +364,7 @@ class Trainer(object):
                     (epoch, self.total_epoch, elapsed, ds_loss, dt_loss, g_s_loss, g_t_loss, g_loss, non_g_loss, loss, self.g_lr_scher.get_lr()[0], self.ds_lr_scher.get_lr()[0], self.dt_lr_scher.get_lr()[0])
 
                 if self.use_tensorboard is True:
-                    write_log(self.writer, log_str, ds_loss_real, ds_loss_fake, ds_loss, dt_loss_real, dt_loss_fake, dt_loss, g_loss, non_g_loss, loss)
+                    write_log(self.writer, log_str, epoch, ds_loss_real, ds_loss_fake, ds_loss, dt_loss_real, dt_loss_fake, dt_loss, g_loss, non_g_loss, loss)
                 print(log_str)
 
             # Sample images
