@@ -44,7 +44,7 @@ def main(config):
 
     if config.train:
         if config.model=='dvd-gan':
-            trainer = Trainer(train_loader, test_loader, config) 
+            trainer = Trainer(train_loader, val_loader, test_loader, config) 
         else:
             trainer = None
 
