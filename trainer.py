@@ -508,7 +508,6 @@ class Trainer(object):
     def generate_samples(self, epoch):
         self.G.eval()
 
-        pred_y = self.G(batch_x.to(self.device))
         # TODO: improve this one
         for batch_x, batch_y in self.test_loader:
             pred_y = self.model(batch_x.to(self.device))
