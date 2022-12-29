@@ -335,7 +335,7 @@ class Trainer(object):
                     f"""ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {loss:.9f}, non_g_loss: {non_g_loss:.9f}""")
 
                 step = step + 1
-                if step == 10:
+                if step == 2:
                     break
 
             # ==================== print & save part ==================== #
@@ -515,10 +515,10 @@ class Trainer(object):
             pred_y = self.G(batch_x.to(self.device))
             break
 
-        print(batch_x.size())
-        print(batch_y.size())
-        print(pred_y.size())
-        
+        batch_x = batch_x[0]
+        batch_y = batch_y[0]
+        pred_y = pred_y[0]
+
         outputs_and_expectations = torch.cat((pred_y, batch_y), 0)
 
         if self.use_tensorboard is True:
