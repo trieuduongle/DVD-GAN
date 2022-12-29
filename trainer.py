@@ -257,9 +257,9 @@ class Trainer(object):
                     # Backward + Optimize
                     ds_loss = ds_loss_real + ds_loss_fake
 
-                    list_ds_loss.append(ds_loss)
-                    list_ds_loss_real.append(ds_loss_real)
-                    list_ds_loss_fake.append(ds_loss_fake)
+                    list_ds_loss.append(ds_loss.item())
+                    list_ds_loss_real.append(ds_loss_real.item())
+                    list_ds_loss_fake.append(ds_loss_fake.item())
 
                     self.reset_grad()
                     ds_loss.backward()
@@ -275,9 +275,9 @@ class Trainer(object):
                     # Backward + Optimize
                     dt_loss = dt_loss_real + dt_loss_fake
 
-                    list_dt_loss_real.append(dt_loss_real)
-                    list_dt_loss_fake.append(dt_loss_fake)
-                    list_dt_loss.append(dt_loss)
+                    list_dt_loss_real.append(dt_loss_real.item())
+                    list_dt_loss_fake.append(dt_loss_fake.item())
+                    list_dt_loss.append(dt_loss.item())
 
                     self.reset_grad()
                     dt_loss.backward()
@@ -318,11 +318,11 @@ class Trainer(object):
                 non_g_loss = self.g_criterion(pred_y, batch_y)
                 loss = non_g_loss + g_loss
 
-                list_g_s_loss.append(g_s_loss)
-                list_g_t_loss.append(g_t_loss)
-                list_g_loss.append(g_loss)
-                list_non_g_loss.append(non_g_loss)
-                list_loss.append(loss)
+                list_g_s_loss.append(g_s_loss.item())
+                list_g_t_loss.append(g_t_loss.item())
+                list_g_loss.append(g_loss.item())
+                list_non_g_loss.append(non_g_loss.item())
+                list_loss.append(loss.item())
                 # g_loss = self.calc_loss(g_s_out_fake, True) + self.calc_loss(g_t_out_fake, True)
 
                 # Backward + Optimize
