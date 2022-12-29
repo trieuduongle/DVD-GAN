@@ -215,22 +215,7 @@ class Trainer(object):
                                                  verbose=True
                              )
 
-    def epoch2step(self):
-
-        self.epoch = 0
-        step_per_epoch = len(self.data_loader)
-        print("steps per epoch:", step_per_epoch)
-
-        self.total_step = self.total_epoch * step_per_epoch
-        self.log_step = self.log_epoch * step_per_epoch
-        self.sample_step = self.sample_epoch * step_per_epoch
-        self.model_save_step = self.model_save_epoch * step_per_epoch
-
     def train(self):
-
-        # Data iterator
-        data_iter = iter(self.data_loader)
-        self.epoch2step()
 
         # Start with trained model
         if self.pretrained_model:
@@ -239,147 +224,146 @@ class Trainer(object):
             start = 1
 
         # Start time
-        print("=" * 30, "\nStart training...")
+        print("=" * 30, f"\nStart training from epoch {start}...")
         start_time = time.time()
 
-        self.D_s.train()
-        self.D_t.train()
-        self.G.train()
 
-        step_pbar = tqdm(range(start, self.total_step + 1))
+        for epoch in range(start, self.total_epoch):
+            start_time = time.time()
 
-        for step in step_pbar:
+            self.D_s.train()
+            self.D_t.train()
+            self.G.train()
 
-            # real_videos, real_labels = self.gen_real_video(data_iter)
-            try:
-                batch_x, batch_y = next(data_iter)
-            except:
-                data_iter = iter(self.data_loader)
-                batch_x, batch_y = next(data_iter)
-                self.epoch += 1
+            self.model.train()
+            self.discriminator.train()
+            self.spatial_discriminator.train()
+            
+            train_pbar = tqdm(self.train_loader)
 
-            batch_x = batch_x.to(self.device)
-            batch_y = batch_y.to(self.device)
+            for batch_x, batch_y in train_pbar:
+                batch_x = batch_x.to(self.device)
+                batch_y = batch_y.to(self.device)
 
-            # ================ update D d_iters times ================ #
-            for i in range(self.d_iters):
+                # ================ update D d_iters times ================ #
+                for i in range(self.d_iters):
 
 
-                # ============= Generate fake video ============== #
+                    # ============= Generate fake video ============== #
+                    pred_y = self._predict(batch_x)
+
+                    # ================== Train D_s ================== #
+                    ds_out_real = self.D_s(self.merge_temporal_dim_to_batch_dim(batch_y), transpose=False)
+                    ds_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y.detach()), transpose=False)
+                    ds_loss_real = self.calc_loss(ds_out_real, True, self.ds_criterion)
+                    ds_loss_fake = self.calc_loss(ds_out_fake, False, self.ds_criterion)
+
+                    # Backward + Optimize
+                    ds_loss = ds_loss_real + ds_loss_fake
+                    self.reset_grad()
+                    ds_loss.backward()
+                    self.ds_optimizer.step()
+                    self.ds_lr_scher.step()
+
+                    # ================== Train D_t ================== #
+                    dt_out_real = self.D_t(batch_y)
+                    dt_out_fake = self.D_t(pred_y.detach())
+                    dt_loss_real = self.calc_loss(dt_out_real, True, self.dt_criterion)
+                    dt_loss_fake = self.calc_loss(dt_out_fake, False, self.dt_criterion)
+
+                    # Backward + Optimize
+                    dt_loss = dt_loss_real + dt_loss_fake
+                    self.reset_grad()
+                    dt_loss.backward()
+                    self.dt_optimizer.step()
+                    self.dt_lr_scher.step()
+
+                    # ================== Use wgan_gp ================== #
+                    # if self.adv_loss == "wgan_gp":
+                    #     dt_wgan_loss = self.wgan_loss(real_labels, fake_videos, 'T')
+                    #     ds_wgan_loss = self.wgan_loss(real_labels, fake_videos, 'S')
+                    #     self.reset_grad()
+                    #     dt_wgan_loss.backward()
+                    #     ds_wgan_loss.backward()
+                    #     self.dt_optimizer.step()
+                    #     self.ds_optimizer.step()
+
+                # ==================== update G g_iters time ==================== #
+
+                # for i in range(self.g_iters):
+
+                    # ============= Generate fake video ============== #
+                    # apply Gumbel Softmax
+                    # if i > 1:
+                    #     z = torch.randn(self.batch_size, self.z_dim).to(self.device)
+                    #     z_class = self.label_sample()
+                    #     fake_videos = self.G(z, z_class)
+                    #     fake_videos_sample = sample_k_frames(fake_videos, self.n_frames, self.k_sample)
+                    #     fake_videos_downsample = vid_downsample(fake_videos)
+
+                # =========== Train G and Gumbel noise =========== #
+                # Compute loss with fake images
                 pred_y = self._predict(batch_x)
-
-                # ================== Train D_s ================== #
-                ds_out_real = self.D_s(self.merge_temporal_dim_to_batch_dim(batch_y), transpose=False)
-                ds_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y.detach()), transpose=False)
-                ds_loss_real = self.calc_loss(ds_out_real, True, self.ds_criterion)
-                ds_loss_fake = self.calc_loss(ds_out_fake, False, self.ds_criterion)
-
-                # Backward + Optimize
-                ds_loss = ds_loss_real + ds_loss_fake
-                self.reset_grad()
-                ds_loss.backward()
-                self.ds_optimizer.step()
-                self.ds_lr_scher.step()
-
-                # ================== Train D_t ================== #
-                dt_out_real = self.D_t(batch_y)
-                dt_out_fake = self.D_t(pred_y.detach())
-                dt_loss_real = self.calc_loss(dt_out_real, True, self.dt_criterion)
-                dt_loss_fake = self.calc_loss(dt_out_fake, False, self.dt_criterion)
+                g_s_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y), transpose=False)  # Spatial Discrimminator loss
+                g_t_out_fake = self.D_t(pred_y)  # Temporal Discriminator loss
+                g_s_loss = self.calc_loss(g_s_out_fake, True, self.ds_criterion)
+                g_t_loss = self.calc_loss(g_t_out_fake, True, self.dt_criterion)
+                non_g_loss = self.g_criterion(pred_y, batch_y)
+                g_loss = non_g_loss + self.lambda_d_s * g_s_loss + self.lambda_d_t * g_t_loss
+                # g_loss = self.calc_loss(g_s_out_fake, True) + self.calc_loss(g_t_out_fake, True)
 
                 # Backward + Optimize
-                dt_loss = dt_loss_real + dt_loss_fake
                 self.reset_grad()
-                dt_loss.backward()
-                self.dt_optimizer.step()
-                self.dt_lr_scher.step()
+                g_loss.backward()
+                self.g_optimizer.step()
+                self.g_lr_scher.step()
 
-                # ================== Use wgan_gp ================== #
-                # if self.adv_loss == "wgan_gp":
-                #     dt_wgan_loss = self.wgan_loss(real_labels, fake_videos, 'T')
-                #     ds_wgan_loss = self.wgan_loss(real_labels, fake_videos, 'S')
-                #     self.reset_grad()
-                #     dt_wgan_loss.backward()
-                #     ds_wgan_loss.backward()
-                #     self.dt_optimizer.step()
-                #     self.ds_optimizer.step()
+                train_pbar.set_description(
+                    f"""
+                        ds_loss: {ds_loss:.9f},
+                        dt_loss: {dt_loss:.9f},
+                        g_s_loss: {g_s_loss:.9f},
+                        g_t_loss: {g_t_loss:.9f},
+                        g_loss: {g_loss:.9f},
+                        non_g_loss: {non_g_loss:.9f}
+                    """)
 
-            # ==================== update G g_iters time ==================== #
+                # ==================== print & save part ==================== #
+                # Print out log info
+                if epoch % self.log_epoch == 0:
+                    self.vali()
 
-            # for i in range(self.g_iters):
+                    elapsed = time.time() - start_time
+                    elapsed = str(datetime.timedelta(seconds=elapsed))
+                    start_time = time.time()
 
-                # ============= Generate fake video ============== #
-                # apply Gumbel Softmax
-                # if i > 1:
-                #     z = torch.randn(self.batch_size, self.z_dim).to(self.device)
-                #     z_class = self.label_sample()
-                #     fake_videos = self.G(z, z_class)
-                #     fake_videos_sample = sample_k_frames(fake_videos, self.n_frames, self.k_sample)
-                #     fake_videos_downsample = vid_downsample(fake_videos)
+                    log_str = "Epoch: [%d/%d], time: %s, ds_loss: %.9f, dt_loss: %.9f, g_s_loss: %.9f, g_t_loss: %.9f, g_loss: %.9f, non_g_loss: %.9f, lr: %.2e, ds_lr: %.2e, dt_lr: %.2e" % \
+                        (self.epoch, self.total_epoch, elapsed, ds_loss, dt_loss, g_s_loss, g_t_loss, g_loss, non_g_loss, self.g_lr_scher.get_lr()[0], self.ds_lr_scher.get_lr()[0], self.dt_lr_scher.get_lr()[0])
 
-            # =========== Train G and Gumbel noise =========== #
-            # Compute loss with fake images
-            pred_y = self._predict(batch_x)
-            g_s_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y), transpose=False)  # Spatial Discrimminator loss
-            g_t_out_fake = self.D_t(pred_y)  # Temporal Discriminator loss
-            g_s_loss = self.calc_loss(g_s_out_fake, True, self.ds_criterion)
-            g_t_loss = self.calc_loss(g_t_out_fake, True, self.dt_criterion)
-            non_g_loss = self.g_criterion(pred_y, batch_y)
-            g_loss = non_g_loss + self.lambda_d_s * g_s_loss + self.lambda_d_t * g_t_loss
-            # g_loss = self.calc_loss(g_s_out_fake, True) + self.calc_loss(g_t_out_fake, True)
+                    if self.use_tensorboard is True:
+                        write_log(self.writer, log_str, ds_loss_real, ds_loss_fake, ds_loss, dt_loss_real, dt_loss_fake, dt_loss, g_loss)
+                    print(log_str)
 
-            # Backward + Optimize
-            self.reset_grad()
-            g_loss.backward()
-            self.g_optimizer.step()
-            self.g_lr_scher.step()
+                # Sample images
+                if epoch % self.sample_epoch == 0:
+                    self.generate_samples(epoch)
 
-            step_pbar.set_description(
-                f"""
-                    ds_loss: {ds_loss:.9f},
-                    dt_loss: {dt_loss:.9f},
-                    g_s_loss: {g_s_loss:.9f},
-                    g_t_loss: {g_t_loss:.9f},
-                    g_loss: {g_loss:.9f},
-                    non_g_loss: {non_g_loss:.9f}
-                """)
+                # Save model
+                if epoch % self.model_save_epoch == 0:
+                    torch.save(self.G.state_dict(),
+                            os.path.join(self.model_save_path, '{}_G.pth'.format(epoch)))
+                    torch.save(self.g_optimizer.state_dict(),
+                            os.path.join(self.model_save_path, '{}_G_optimizer.pth'.format(epoch)))
 
-            # ==================== print & save part ==================== #
-            # Print out log info
-            if step % self.log_step == 0:
-                self.vali()
+                    torch.save(self.D_s.state_dict(),
+                            os.path.join(self.model_save_path, '{}_Ds.pth'.format(epoch)))
+                    torch.save(self.ds_optimizer.state_dict(),
+                            os.path.join(self.model_save_path, '{}_Ds_optimizer.pth'.format(epoch)))
 
-                elapsed = time.time() - start_time
-                elapsed = str(datetime.timedelta(seconds=elapsed))
-                start_time = time.time()
-
-                log_str = "Epoch: [%d/%d], Step: [%d/%d], time: %s, ds_loss: %.9f, dt_loss: %.9f, g_s_loss: %.9f, g_t_loss: %.9f, g_loss: %.9f, non_g_loss: %.9f, lr: %.2e, ds_lr: %.2e, dt_lr: %.2e" % \
-                    (self.epoch, self.total_epoch, step, self.total_step, elapsed, ds_loss, dt_loss, g_s_loss, g_t_loss, g_loss, non_g_loss, self.g_lr_scher.get_lr()[0], self.ds_lr_scher.get_lr()[0], self.dt_lr_scher.get_lr()[0])
-
-                if self.use_tensorboard is True:
-                    write_log(self.writer, log_str, step, ds_loss_real, ds_loss_fake, ds_loss, dt_loss_real, dt_loss_fake, dt_loss, g_loss)
-                print(log_str)
-
-            # Sample images
-            if step % self.sample_step == 0:
-                self.generate_samples(step)
-
-            # Save model
-            if step % self.model_save_step == 0:
-                torch.save(self.G.state_dict(),
-                           os.path.join(self.model_save_path, '{}_G.pth'.format(step)))
-                torch.save(self.g_optimizer.state_dict(),
-                           os.path.join(self.model_save_path, '{}_G_optimizer.pth'.format(step)))
-
-                torch.save(self.D_s.state_dict(),
-                           os.path.join(self.model_save_path, '{}_Ds.pth'.format(step)))
-                torch.save(self.ds_optimizer.state_dict(),
-                           os.path.join(self.model_save_path, '{}_Ds_optimizer.pth'.format(step)))
-
-                torch.save(self.D_t.state_dict(),
-                           os.path.join(self.model_save_path, '{}_Dt.pth'.format(step)))
-                torch.save(self.dt_optimizer.state_dict(),
-                           os.path.join(self.model_save_path, '{}_Dt_optimizer.pth'.format(step)))
+                    torch.save(self.D_t.state_dict(),
+                            os.path.join(self.model_save_path, '{}_Dt.pth'.format(epoch)))
+                    torch.save(self.dt_optimizer.state_dict(),
+                            os.path.join(self.model_save_path, '{}_Dt_optimizer.pth'.format(epoch)))
 
     def build_model(self):
 
@@ -431,7 +415,7 @@ class Trainer(object):
         self.dt_optimizer.load_state_dict(torch.load(os.path.join(
             self.model_save_path, '{}_Dt_optimizer.pth'.format(self.pretrained_model))))
 
-        print('loaded trained models (step: {})..!'.format(self.pretrained_model))
+        print('loaded trained models (epoch: {})..!'.format(self.pretrained_model))
 
     def reset_grad(self):
         self.ds_optimizer.zero_grad()
@@ -498,7 +482,7 @@ class Trainer(object):
         return total_loss
 
     @torch.no_grad()
-    def generate_samples(self, step):
+    def generate_samples(self, epoch):
         self.G.eval()
 
         batch_x, batch_y = self.test_loader[0]
@@ -511,10 +495,10 @@ class Trainer(object):
         outputs_and_expectations = torch.cat((pred_y, batch_y), 0)
 
         if self.use_tensorboard is True:
-            self.writer.add_image(f"inputs/Step_{step}", make_grid(batch_x.data, nrow=self.pre_seq_length), step)
-            self.writer.add_image(f"outputs/Step_{step}", make_grid(pred_y.data, nrow=self.aft_seq_length), step)
-            self.writer.add_image(f"expected/Step_{step}", make_grid(pred_y.data, nrow=self.aft_seq_length), step)
+            self.writer.add_image(f"inputs/Epoch_{epoch}", make_grid(batch_x.data, nrow=self.pre_seq_length), epoch)
+            self.writer.add_image(f"outputs/Epoch_{epoch}", make_grid(pred_y.data, nrow=self.aft_seq_length), epoch)
+            self.writer.add_image(f"expected/Epoch_{epoch}", make_grid(pred_y.data, nrow=self.aft_seq_length), epoch)
         else:
-            save_image(batch_x.data, os.path.join(self.sample_path, step, "inputs.png"), nrow=self.pre_seq_length)
-            save_image(outputs_and_expectations.data, os.path.join(self.sample_path, step, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
+            save_image(batch_x.data, os.path.join(self.sample_path, epoch, "inputs.png"), nrow=self.pre_seq_length)
+            save_image(outputs_and_expectations.data, os.path.join(self.sample_path, epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
         self.G.train()
