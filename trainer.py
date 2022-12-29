@@ -514,6 +514,10 @@ class Trainer(object):
             batch_y = batch_y.to(self.device)
             pred_y = self.G(batch_x.to(self.device))
             break
+
+        print(batch_x.size())
+        print(batch_y.size())
+        print(pred_y.size())
         
         outputs_and_expectations = torch.cat((pred_y, batch_y), 0)
 
