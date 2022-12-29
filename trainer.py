@@ -6,7 +6,7 @@ import numpy as np
 import torch.nn as nn
 from torchvision.utils import save_image, make_grid
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau, StepLR, MultiStepLR, OneCycleLR
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from Module.Generator import Generator
 from Module.PatchGANDiscriminator import SNTemporalPatchGANDiscriminator
@@ -303,14 +303,7 @@ class Trainer(object):
                 self.g_lr_scher.step()
 
                 train_pbar.set_description(
-                    f"""
-                        ds_loss: {ds_loss:.9f},
-                        dt_loss: {dt_loss:.9f},
-                        g_s_loss: {g_s_loss:.9f},
-                        g_t_loss: {g_t_loss:.9f},
-                        g_loss: {g_loss:.9f},
-                        non_g_loss: {non_g_loss:.9f}
-                    """)
+                    f"""ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {g_loss:.9f}, non_g_loss: {non_g_loss:.9f}""")
 
             # ==================== print & save part ==================== #
             # Print out log info
