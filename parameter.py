@@ -89,9 +89,6 @@ def get_parameters():
     parser.add_argument('--pre_seq_length', default=10, type=int)
     parser.add_argument('--aft_seq_length', default=20, type=int)
 
-    parser.add_argument('--lr', default=0.01, type=float, help='Learning rate')
-    parser.add_argument('--lr_D_S', default=1e-4, type=float)
-    parser.add_argument('--lr_D_T', default=1e-4, type=float)
     parser.add_argument('--lambda_d_s', default=5e-3, type=float)
     parser.add_argument('--lambda_d_t', default=5e-3, type=float)
 

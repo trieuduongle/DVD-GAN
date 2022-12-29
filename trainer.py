@@ -81,9 +81,6 @@ class Trainer(object):
         self.hid_T = config.hid_T
         self.N_S = config.N_S
         self.N_T = config.N_T
-        self.lr  = config.lr 
-        self.lr_D_S = config.lr_D_S
-        self.lr_D_T = config.lr_D_T
         self.pre_seq_length = config.pre_seq_length
         self.aft_seq_length = config.aft_seq_length
         self.lambda_d_s = config.lambda_d_s
