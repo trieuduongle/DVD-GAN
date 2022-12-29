@@ -11,7 +11,7 @@ from tqdm import tqdm
 from Module.Generator import Generator
 from Module.PatchGANDiscriminator import SNTemporalPatchGANDiscriminator
 from utils import *
-from utils.metrics import metric
+from metrics import *
 
 
 class Trainer(object):
