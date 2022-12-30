@@ -218,7 +218,7 @@ class Trainer(object):
             start = 1
 
         # Start time
-        print_log("=" * 30, f"\nStart training from epoch {start}...")
+        print_log(f'{"=" * 30} \nStart training from epoch {start}...')
         start_time = time.time()
 
 
@@ -396,7 +396,7 @@ class Trainer(object):
 
     def build_model(self):
 
-        print_log("=" * 30, '\nBuild_model...')
+        print_log(f'{"=" * 30} \nBuild_model...')
 
         self.G = Generator(tuple(self.in_shape), self.hid_S,
                            self.hid_T, self.N_S, self.N_T).cuda()
@@ -405,7 +405,7 @@ class Trainer(object):
 
         if self.parallel:
             print_log('Use parallel...')
-            print_log('gpus:', os.environ["CUDA_VISIBLE_DEVICES"])
+            print_log(f'gpus: {os.environ["CUDA_VISIBLE_DEVICES"]}')
 
             self.G = nn.DataParallel(self.G, device_ids=self.gpus)
             self.D_s = nn.DataParallel(self.D_s, device_ids=self.gpus)
@@ -506,7 +506,7 @@ class Trainer(object):
         trues = np.concatenate(trues_lst, axis=0)
 
         mse, mae, ssim, psnr = metric(preds, trues, self.val_loader.dataset.mean, self.val_loader.dataset.std, True)
-        print_log('vali mse:{:.4f}, mae:{:.4f}, ssim:{:.4f}, psnr:{:.4f}'.format(mse, mae, ssim, psnr))
+        print_log('vali mse:{:.9f}, mae:{:.9f}, ssim:{:.9f}, psnr:{:.9f}'.format(mse, mae, ssim, psnr))
         self.G.train()
         return total_loss
 
