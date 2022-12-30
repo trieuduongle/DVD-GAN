@@ -2,6 +2,7 @@ import time
 import torch
 import datetime
 import numpy as np
+import logging
 
 import torch.nn as nn
 from torchvision.utils import save_image, make_grid
@@ -94,12 +95,17 @@ class Trainer(object):
 
         self.build_model()
 
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
+        logging.basicConfig(level=logging.INFO, filename=os.pardir.join(self.model_save_path, 'log.log'),
+                            filemode='a', format='%(asctime)s - %(message)s')
+
         if self.use_tensorboard:
             self.build_tensorboard()
 
         # Start with trained model
         if self.pretrained_model:
-            print('load_pretrained_model...')
+            print_log('load_pretrained_model...')
             self.load_pretrained_model()
 
     def label_sample(self):
@@ -212,7 +218,7 @@ class Trainer(object):
             start = 1
 
         # Start time
-        print("=" * 30, f"\nStart training from epoch {start}...")
+        print_log("=" * 30, f"\nStart training from epoch {start}...")
         start_time = time.time()
 
 
@@ -365,7 +371,7 @@ class Trainer(object):
 
                 if self.use_tensorboard is True:
                     write_log(self.writer, log_str, epoch, ds_loss_real, ds_loss_fake, ds_loss, dt_loss_real, dt_loss_fake, dt_loss, g_loss, non_g_loss, loss)
-                print(log_str)
+                print_log(log_str)
 
             # Sample images
             if epoch % self.sample_epoch == 0:
@@ -390,7 +396,7 @@ class Trainer(object):
 
     def build_model(self):
 
-        print("=" * 30, '\nBuild_model...')
+        print_log("=" * 30, '\nBuild_model...')
 
         self.G = Generator(tuple(self.in_shape), self.hid_S,
                            self.hid_T, self.N_S, self.N_T).cuda()
@@ -398,8 +404,8 @@ class Trainer(object):
         self.D_t = SNTemporalPatchGANDiscriminator(self.image_channels, conv_by='2d').cuda()
 
         if self.parallel:
-            print('Use parallel...')
-            print('gpus:', os.environ["CUDA_VISIBLE_DEVICES"])
+            print_log('Use parallel...')
+            print_log('gpus:', os.environ["CUDA_VISIBLE_DEVICES"])
 
             self.G = nn.DataParallel(self.G, device_ids=self.gpus)
             self.D_s = nn.DataParallel(self.D_s, device_ids=self.gpus)
@@ -438,7 +444,7 @@ class Trainer(object):
         self.dt_optimizer.load_state_dict(torch.load(os.path.join(
             self.model_save_path, '{}_Dt_optimizer.pth'.format(self.pretrained_model))))
 
-        print('loaded trained models (epoch: {})..!'.format(self.pretrained_model))
+        print_log('loaded trained models (epoch: {})..!'.format(self.pretrained_model))
 
     def reset_grad(self):
         self.ds_optimizer.zero_grad()
@@ -500,7 +506,7 @@ class Trainer(object):
         trues = np.concatenate(trues_lst, axis=0)
 
         mse, mae, ssim, psnr = metric(preds, trues, self.val_loader.dataset.mean, self.val_loader.dataset.std, True)
-        print('vali mse:{:.4f}, mae:{:.4f}, ssim:{:.4f}, psnr:{:.4f}'.format(mse, mae, ssim, psnr))
+        print_log('vali mse:{:.4f}, mae:{:.4f}, ssim:{:.4f}, psnr:{:.4f}'.format(mse, mae, ssim, psnr))
         self.G.train()
         return total_loss
 

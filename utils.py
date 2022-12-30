@@ -1,5 +1,6 @@
 import os
 import torch
+import logging
 from torch.nn import init
 import torch.nn.functional as F
 
@@ -87,3 +88,7 @@ def vid_downsample(data):
 def check_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
+
+def print_log(message):
+    print(message)
+    logging.info(message)
