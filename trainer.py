@@ -97,7 +97,7 @@ class Trainer(object):
 
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
-        logging.basicConfig(level=logging.INFO, filename=os.pardir.join(self.model_save_path, 'log.log'),
+        logging.basicConfig(level=logging.INFO, filename=os.path.join(self.model_save_path, 'log.log'),
                             filemode='a', format='%(asctime)s - %(message)s')
 
         if self.use_tensorboard:
