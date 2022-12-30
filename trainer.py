@@ -534,7 +534,7 @@ class Trainer(object):
         if self.use_tensorboard is True:
             self.writer.add_image(f"inputs", make_grid(batch_x.data, nrow=self.pre_seq_length), epoch)
             self.writer.add_image(f"outputs", make_grid(pred_y.data, nrow=self.aft_seq_length), epoch)
-            self.writer.add_image(f"expected", make_grid(pred_y.data, nrow=self.aft_seq_length), epoch)
+            self.writer.add_image(f"expected", make_grid(batch_y.data, nrow=self.aft_seq_length), epoch)
             save_image(batch_x.data, os.path.join(path_to_epoch, "inputs.png"), nrow=self.pre_seq_length)
             save_image(outputs_and_expectations.data, os.path.join(path_to_epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
         else:
