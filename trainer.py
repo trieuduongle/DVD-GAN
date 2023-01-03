@@ -369,11 +369,11 @@ class Trainer(object):
                 print_log(log_str)
 
             # Sample images
-            if epoch % self.sample_epoch == 0:
+            if epoch == 1 or epoch % self.sample_epoch == 0:
                 self.generate_samples(epoch)
 
             # Save model
-            if epoch % self.model_save_epoch == 0:
+            if epoch == 1 or epoch % self.model_save_epoch == 0:
                 torch.save(self.G.state_dict(),
                         os.path.join(self.model_save_path, '{}_G.pth'.format(epoch)))
                 torch.save(self.g_optimizer.state_dict(),
