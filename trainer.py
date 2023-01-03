@@ -177,18 +177,23 @@ class Trainer(object):
             self.ds_lr_scher = MultiStepLR(self.ds_optimizer, [10000, 30000], gamma=0.3)
             self.dt_lr_scher = MultiStepLR(self.dt_optimizer, [10000, 30000], gamma=0.3)
         elif self.lr_schr == 'onecycle':
+            if self.pretrained_model:
+                start = self.pretrained_model + 1
+            else:
+                start = 1
+            total = self.total_epoch - start
             self.g_lr_scher = OneCycleLR(self.g_optimizer,
                                          max_lr=self.g_lr,
                                          steps_per_epoch=len(self.train_loader),
-                                         epochs=self.args.epochs)
+                                         epochs=total)
             self.ds_lr_scher = OneCycleLR(self.ds_optimizer,
                                          max_lr=self.ds_lr,
                                          steps_per_epoch=len(self.train_loader),
-                                         epochs=self.args.epochs)
+                                         epochs=total)
             self.dt_lr_scher = OneCycleLR(self.dt_optimizer,
                                          max_lr=self.dt_lr,
                                          steps_per_epoch=len(self.train_loader),
-                                         epochs=self.args.epochs)
+                                         epochs=total)
         else:
             self.g_lr_scher = ReduceLROnPlateau(self.g_optimizer, mode='min',
                                                 factor=self.lr_decay, patience=100,
