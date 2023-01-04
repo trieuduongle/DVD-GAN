@@ -74,6 +74,7 @@ class Trainer(object):
         # Path
         self.log_path = os.path.join(config.log_path, self.version)
         self.sample_path = os.path.join(config.sample_path, self.version)
+        self.interpolate_path = os.path.join(config.interpolate_path, self.version)
         self.model_save_path = os.path.join(config.model_save_path, self.version)
 
         # CUSTOM
@@ -557,3 +558,27 @@ class Trainer(object):
         target_val = (
             self.real_label_val if target_is_real else self.fake_label_val)
         return input.new_ones(input.size()) * target_val
+
+    def interpolate(self):
+        self.G.eval()
+
+        # TODO: improve this one
+        for batch_x, batch_y in self.test_loader:
+            batch_x = batch_x.to(self.device)
+            batch_y = batch_y.to(self.device)
+            pred_y = self.G(batch_x.to(self.device))
+            break
+
+        batch_x = batch_x[0]
+        batch_y = batch_y[0]
+        pred_y = pred_y[0]
+
+        outputs_and_expectations = torch.cat((pred_y, batch_y), 0)
+
+        path_to_epoch = os.path.join(self.interpolate_path)
+
+        check_dir(path_to_epoch)
+        
+        save_image(batch_x.data, os.path.join(path_to_epoch, "inputs.png"), nrow=self.pre_seq_length)
+        save_image(outputs_and_expectations.data, os.path.join(path_to_epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
+        self.G.train()

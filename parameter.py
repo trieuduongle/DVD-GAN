@@ -54,6 +54,7 @@ def get_parameters():
     parser.add_argument('--log_path', type=str, default='./logs')
     parser.add_argument('--model_save_path', type=str, default='./models')
     parser.add_argument('--sample_path', type=str, default='./samples')
+    parser.add_argument('--interpolate_path', type=str, default='./interpolate')
 
     # epoch size
     parser.add_argument('--log_epoch', type=int, default=1)
