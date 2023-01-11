@@ -418,7 +418,7 @@ class Trainer(object):
         self.select_opt_schr()
 
         self.c_loss = torch.nn.CrossEntropyLoss()
-        self.g_criterion = torch.nn.MSELoss()
+        self.g_criterion = torch.nn.L1Loss()
         self.ds_criterion = torch.nn.MSELoss()
         self.dt_criterion = torch.nn.MSELoss()
 
