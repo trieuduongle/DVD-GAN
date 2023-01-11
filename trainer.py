@@ -360,7 +360,7 @@ class Trainer(object):
             non_g_loss = np.average(list_non_g_loss)
             loss = np.average(list_loss)
 
-            if epoch % self.log_epoch == 0:
+            if epoch == start or epoch % self.log_epoch == 0:
                 self.vali()
 
                 elapsed = time.time() - start_time
@@ -375,11 +375,11 @@ class Trainer(object):
                 print_log(log_str)
 
             # Sample images
-            if epoch == 1 or epoch % self.sample_epoch == 0:
+            if epoch == start or epoch % self.sample_epoch == 0:
                 self.generate_samples(epoch)
 
             # Save model
-            if epoch == 1 or epoch % self.model_save_epoch == 0:
+            if epoch == start or epoch % self.model_save_epoch == 0:
                 torch.save(self.G.state_dict(),
                         os.path.join(self.model_save_path, '{}_G.pth'.format(epoch)))
                 torch.save(self.g_optimizer.state_dict(),
