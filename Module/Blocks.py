@@ -200,10 +200,12 @@ class VanillaConv(nn.Module):
         super().__init__()
         if conv_by == '2d':
             self.module = NN3Dby2D
+            print('using VanillaConv 2d')
         elif conv_by == '2dtsm':
             self.module = NN3Dby2DTSM
         elif conv_by == '3d':
             self.module = torch.nn
+            print('using VanillaConv 3d')
         else:
             raise NotImplementedError(f'conv_by {conv_by} is not implemented.')
 
