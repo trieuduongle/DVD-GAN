@@ -260,8 +260,8 @@ class Trainer(object):
                     pred_y = self._predict(batch_x)
 
                     # ================== Train D_s ================== #
-                    ds_out_real = self.D_s(self.merge_temporal_dim_to_batch_dim(batch_y), transpose=False)
-                    ds_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y.detach()), transpose=False)
+                    ds_out_real = self.D_s(batch_y)
+                    ds_out_fake = self.D_s(pred_y.detach())
                     ds_loss_real = self.calc_loss(ds_out_real, True, self.ds_criterion)
                     ds_loss_fake = self.calc_loss(ds_out_fake, False, self.ds_criterion)
 
