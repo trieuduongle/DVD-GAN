@@ -401,8 +401,8 @@ class Trainer(object):
 
         self.G = Generator(tuple(self.in_shape), self.hid_S,
                            self.hid_T, self.N_S, self.N_T).cuda()
-        self.D_s = SNTemporalPatchGANDiscriminator(self.image_channels, conv_by='2d').cuda()
-        self.D_t = SNTemporalPatchGANDiscriminator(self.image_channels, conv_by='3d').cuda()
+        self.D_s = SNTemporalPatchGANDiscriminator(self.image_channels).cuda()
+        self.D_t = SNTemporalPatchGANDiscriminator(self.image_channels).cuda()
 
         if self.parallel:
             print_log('Use parallel...')
