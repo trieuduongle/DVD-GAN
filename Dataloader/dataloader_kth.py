@@ -50,10 +50,10 @@ class KTHDataset(Dataset):
         self.std = 1
     
     def __len__(self):
-        return len(self.indices)
+        return len(self.datas)
 
     def __getitem__(self, i):
-        batch_ind = self.indices[i]
+        batch_ind = i
         begin = batch_ind
         end1 = begin + self.pre_seq_length
         end2 = begin + self.pre_seq_length + self.aft_seq_length
