@@ -319,7 +319,6 @@ def load_data(batch_size, val_batch_size, data_root, num_workers=1, pre_seq_leng
     return dataloader_train, dataloader_validation, dataloader_test, 0, 1
 
 def load_train_data(batch_size, data_root, file_name, num_workers=1, pre_seq_length=10, aft_seq_length=20, require_back=False):
-    print(file_name)
     path = os.path.join(data_root, file_name)
     print(f'loading data at {path}')
     train_data = hkl.load(path)
@@ -336,6 +335,7 @@ def load_train_data(batch_size, data_root, file_name, num_workers=1, pre_seq_len
     return dataloader_train
 
 def load_test_data(batch_size, val_batch_size, data_root, num_workers=1, pre_seq_length=10, aft_seq_length=20, require_back=False):
+    print('loading test data')
     img_width = 128
     # pre_seq_length, aft_seq_length = 10, 10
     input_param = {
@@ -348,7 +348,6 @@ def load_test_data(batch_size, val_batch_size, data_root, num_workers=1, pre_seq
     }
     input_handle = DataProcess(input_param)
     test_input_handle = input_handle.get_test_input_handle()
-    print('loaded test_input_handle')
 
     test_set = KTHDataset(test_input_handle.datas,
                           test_input_handle.indices,
