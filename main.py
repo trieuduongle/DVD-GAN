@@ -62,10 +62,7 @@ def main(config):
             config.total_epoch = 10
 
         for _ in range(runner):
-            file_counter = 0
-            
             for name in file_names:
-                file_counter = file_counter + 1
                 train_loader = load_train_data(
                     config.batch_size,
                     config.data_root,
