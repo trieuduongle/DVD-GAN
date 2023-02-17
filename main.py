@@ -63,6 +63,7 @@ def main(config):
 
         for _ in range(runner):
             for name in file_names:
+                print(f'name {name}')
                 train_loader = load_train_data(
                     config.batch_size,
                     config.data_root,

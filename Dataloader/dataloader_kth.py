@@ -319,6 +319,7 @@ def load_data(batch_size, val_batch_size, data_root, num_workers=1, pre_seq_leng
     return dataloader_train, dataloader_validation, dataloader_test, 0, 1
 
 def load_train_data(batch_size, data_root, file_name, num_workers=1, pre_seq_length=10, aft_seq_length=20, require_back=False):
+    print(file_name)
     path = os.path.join(data_root, file_name)
     print(f'loading data at {path}')
     train_data = hkl.load(path)
