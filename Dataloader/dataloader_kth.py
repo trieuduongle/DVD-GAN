@@ -258,15 +258,15 @@ class DataProcess(object):
     print('there are ' + str(len(indices)) + ' sequences')
     return data, indices
 
-  def get_train_input_handle(self):
+  def get_train_input_handle(self, file_name='train_data_gzip.hkl'):
     if not os.path.exists(os.path.join(self.paths, 'train_data_gzip.hkl')):
       print('not exist')
       train_data, train_indices = self.load_data(self.paths, mode='train')
       hkl.dump(train_data, os.path.join(self.paths, 'train_data_gzip.hkl'), mode='w',compression='gzip')
       hkl.dump(train_indices, os.path.join(self.paths, 'train_indices_gzip.hkl'), mode='w', compression='gzip')
     else:
-      print('exist')
-      train_data = hkl.load(os.path.join(self.paths, 'train_data_gzip.hkl'))
+      print(f'loading dataset at path {file_name}')
+      train_data = hkl.load(os.path.join(self.paths, file_name))
       train_indices = hkl.load(os.path.join(self.paths, 'train_indices_gzip.hkl'))
     return InputHandle(train_data, train_indices, self.input_param)
 
@@ -318,6 +318,59 @@ def load_data(batch_size, val_batch_size, data_root, num_workers=1, pre_seq_leng
 
     return dataloader_train, dataloader_validation, dataloader_test, 0, 1
 
+def load_train_data(batch_size, data_root, file_name, num_workers=1, pre_seq_length=10, aft_seq_length=20, require_back=False):
+    img_width = 128
+    # pre_seq_length, aft_seq_length = 10, 10
+    input_param = {
+        'paths': data_root,
+        'image_width': img_width,
+        'minibatch_size': batch_size,
+        'seq_length': (pre_seq_length + aft_seq_length),
+        'input_data_type': 'float32',
+        'name': 'kth'
+    }
+    input_handle = DataProcess(input_param)
+    train_input_handle = input_handle.get_train_input_handle(file_name)
+   
+    train_set = KTHDataset( train_input_handle.datas,
+                              train_input_handle.indices,
+                              pre_seq_length,
+                              aft_seq_length,
+                              require_back=require_back)
+    print('loaded train_set')
+   
+    dataloader_train = torch.utils.data.DataLoader(
+        train_set, batch_size=batch_size, shuffle=True, pin_memory=False, num_workers=num_workers)
+   
+    return dataloader_train
+
+def load_test_data(batch_size, val_batch_size, data_root, num_workers=1, pre_seq_length=10, aft_seq_length=20, require_back=False):
+    img_width = 128
+    # pre_seq_length, aft_seq_length = 10, 10
+    input_param = {
+        'paths': data_root,
+        'image_width': img_width,
+        'minibatch_size': batch_size,
+        'seq_length': (pre_seq_length + aft_seq_length),
+        'input_data_type': 'float32',
+        'name': 'kth'
+    }
+    input_handle = DataProcess(input_param)
+    test_input_handle = input_handle.get_test_input_handle()
+    print('loaded test_input_handle')
+
+    test_set = KTHDataset(test_input_handle.datas,
+                          test_input_handle.indices,
+                          pre_seq_length,
+                          aft_seq_length,
+                          require_back=require_back)
+    print('loaded test_set')
+
+    dataloader_validation = None
+    dataloader_test = torch.utils.data.DataLoader(
+        test_set, batch_size=val_batch_size, shuffle=False, pin_memory=False, num_workers=num_workers)
+
+    return  dataloader_validation, dataloader_test
 
 if __name__ == '__main__':
   train_loader, vali_loader, test_loader, data_mean, data_std = load_data(16, 16, '/usr/data/video_dataset/data/kth_action/', 10, 20)
