@@ -493,7 +493,7 @@ class Trainer(object):
                 break
 
             batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
-            pred_y = self.G(batch_x)
+            pred_y = self._predict(batch_x)
             list(map(lambda data, lst: lst.append(data.detach().cpu().numpy()), [
                  pred_y, batch_y], [preds_lst, trues_lst]))
 
