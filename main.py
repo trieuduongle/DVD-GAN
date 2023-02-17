@@ -34,15 +34,7 @@ def main(config):
     for i in range(1, config.n_scales):
         config.scales.append(config.scales[-1] * config.scale_step)
 
-    train_loader = load_train_data(
-        config.batch_size,
-        config.val_batch_size,
-        config.data_root,
-        config.num_workers
-    )
-
     val_loader, test_loader = load_test_data(
-        config.dataname,
         config.batch_size,
         config.val_batch_size,
         config.data_root,
