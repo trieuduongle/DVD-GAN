@@ -519,7 +519,7 @@ class Trainer(object):
         for batch_x, batch_y in self.test_loader:
             batch_x = batch_x.to(self.device)
             batch_y = batch_y.to(self.device)
-            pred_y = self.G(batch_x.to(self.device))
+            pred_y = self._predict(batch_x.to(self.device))
             break
 
         batch_x = batch_x[0]
@@ -541,6 +541,16 @@ class Trainer(object):
         else:
             save_image(batch_x.data, os.path.join(path_to_epoch, "inputs.png"), nrow=self.pre_seq_length)
             save_image(outputs_and_expectations.data, os.path.join(path_to_epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
+
+        single_files_path = os.path.join(path_to_epoch,'singles')
+        check_dir(single_files_path)
+
+        for index, predicted in enumerate(pred_y.data):
+            save_image(predicted, os.path.join(single_files_path, f"predicted_{index + 1}.png"), nrow=1)
+        
+        for index, expected in enumerate(batch_y.data):
+            save_image(expected, os.path.join(single_files_path, f"expected_{index + 1}.png"), nrow=1)
+
         self.G.train()
     
     def get_target_label(self, input, target_is_real):
