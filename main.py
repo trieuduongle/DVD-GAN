@@ -48,7 +48,7 @@ def main(config):
         else:
             trainer = None
 
-        trainer.generate_samples(1)
+        trainer.train()
     else:
         # TODO: implement
         tester = Tester(val_loader, config)
