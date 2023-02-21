@@ -324,6 +324,9 @@ class Trainer(object):
                 pred_y = []
                 
                 cur_seq = batch_x.clone()
+
+                
+                self.reset_grad()
                 
                 for _ in range(self.aft_seq_length):
                     pred_y = self.G(cur_seq)
@@ -346,7 +349,6 @@ class Trainer(object):
                     # g_loss = self.calc_loss(g_s_out_fake, True) + self.calc_loss(g_t_out_fake, True)
 
                     # Backward + Optimize
-                    self.reset_grad()
                     loss.backward()
                     self.g_optimizer.step()
                     self.g_lr_scher.step()
