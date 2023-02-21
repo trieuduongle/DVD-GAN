@@ -501,6 +501,9 @@ class Trainer(object):
             output = self.G(cur_seq)[:,:1]
             pred_y.append(output)
             cur_seq = torch.vstack((cur_seq.clone()[:,:1], output.clone()))
+            print(cur_seq.clone()[:,:1].shape)
+            print(output.clone().shape)
+            print(cur_seq.shape)
 
         pred_y = torch.cat(pred_y, dim=1)
         return pred_y
