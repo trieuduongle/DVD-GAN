@@ -320,30 +320,64 @@ class Trainer(object):
 
                 # =========== Train G and Gumbel noise =========== #
                 # Compute loss with fake images
-                pred_y = self._predict(batch_x)
-                g_s_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y), transpose=False)  # Spatial Discrimminator loss
-                g_t_out_fake = self.D_t(pred_y)  # Temporal Discriminator loss
-                g_s_loss = self.calc_loss(g_s_out_fake, True, self.ds_criterion)
-                g_t_loss = self.calc_loss(g_t_out_fake, True, self.dt_criterion)
-                g_loss = self.lambda_d_s * g_s_loss + self.lambda_d_t * g_t_loss
-                non_g_loss = self.g_criterion(pred_y, batch_y)
-                loss = non_g_loss + g_loss
 
-                list_g_s_loss.append(g_s_loss.item())
-                list_g_t_loss.append(g_t_loss.item())
-                list_g_loss.append(g_loss.item())
-                list_non_g_loss.append(non_g_loss.item())
-                list_loss.append(loss.item())
-                # g_loss = self.calc_loss(g_s_out_fake, True) + self.calc_loss(g_t_out_fake, True)
+                pred_y = []
+                
+                cur_seq = batch_x.clone()
+                
+                for _ in range(self.aft_seq_length):
+                    pred_y = self.G(cur_seq)
+                    cur_seq = torch.vstack((cur_seq[:,:1], pred_y))
+                    expected = torch.vstack((batch_x.clone()[:,:1], batch_y.clone()[:,:1]))
 
-                # Backward + Optimize
-                self.reset_grad()
-                loss.backward()
-                self.g_optimizer.step()
-                self.g_lr_scher.step()
+                    g_s_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(cur_seq), transpose=False)  # Spatial Discrimminator loss
+                    g_t_out_fake = self.D_t(cur_seq)  # Temporal Discriminator loss
+                    g_s_loss = self.calc_loss(g_s_out_fake, True, self.ds_criterion)
+                    g_t_loss = self.calc_loss(g_t_out_fake, True, self.dt_criterion)
+                    g_loss = self.lambda_d_s * g_s_loss + self.lambda_d_t * g_t_loss
+                    non_g_loss = self.g_criterion(pred_y, expected)
+                    loss = non_g_loss + g_loss
 
-                train_pbar.set_description(
+                    list_g_s_loss.append(g_s_loss.item())
+                    list_g_t_loss.append(g_t_loss.item())
+                    list_g_loss.append(g_loss.item())
+                    list_non_g_loss.append(non_g_loss.item())
+                    list_loss.append(loss.item())
+                    # g_loss = self.calc_loss(g_s_out_fake, True) + self.calc_loss(g_t_out_fake, True)
+
+                    # Backward + Optimize
+                    self.reset_grad()
+                    loss.backward()
+                    self.g_optimizer.step()
+                    self.g_lr_scher.step()
+
+                    train_pbar.set_description(
                     f"""ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {loss:.9f}, non_g_loss: {non_g_loss:.9f}""")
+
+                # pred_y = self._predict(batch_x)
+                # g_s_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y), transpose=False)  # Spatial Discrimminator loss
+                # g_t_out_fake = self.D_t(pred_y)  # Temporal Discriminator loss
+                # g_s_loss = self.calc_loss(g_s_out_fake, True, self.ds_criterion)
+                # g_t_loss = self.calc_loss(g_t_out_fake, True, self.dt_criterion)
+                # g_loss = self.lambda_d_s * g_s_loss + self.lambda_d_t * g_t_loss
+                # non_g_loss = self.g_criterion(pred_y, batch_y)
+                # loss = non_g_loss + g_loss
+
+                # list_g_s_loss.append(g_s_loss.item())
+                # list_g_t_loss.append(g_t_loss.item())
+                # list_g_loss.append(g_loss.item())
+                # list_non_g_loss.append(non_g_loss.item())
+                # list_loss.append(loss.item())
+                # # g_loss = self.calc_loss(g_s_out_fake, True) + self.calc_loss(g_t_out_fake, True)
+
+                # # Backward + Optimize
+                # self.reset_grad()
+                # loss.backward()
+                # self.g_optimizer.step()
+                # self.g_lr_scher.step()
+
+                # train_pbar.set_description(
+                #     f"""ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {loss:.9f}, non_g_loss: {non_g_loss:.9f}""")
 
             # ==================== print & save part ==================== #
             # Print out log info
@@ -461,26 +495,14 @@ class Trainer(object):
         return inputs.view([in_shape[0] * in_shape[1]] + in_shape[2:])
 
     def _predict(self, batch_x):
-        if self.aft_seq_length == self.pre_seq_length:
-            pred_y = self.G(batch_x)
-        elif self.aft_seq_length < self.pre_seq_length:
-            pred_y = self.G(batch_x)
-            pred_y = pred_y[:, :self.aft_seq_length]
-        elif self.aft_seq_length > self.pre_seq_length:
-            pred_y = []
-            d = self.aft_seq_length // self.pre_seq_length
-            m = self.aft_seq_length % self.pre_seq_length
-            
-            cur_seq = batch_x.clone()
-            for _ in range(d):
-                cur_seq = self.G(cur_seq)
-                pred_y.append(cur_seq)
+        pred_y = []
+        cur_seq = batch_x.clone()
+        for _ in range(self.aft_seq_length):
+            output = self.G(cur_seq)[:,:1]
+            pred_y.append(output)
+            cur_seq = torch.vstack(cur_seq.clone()[:,:1], output.clone())
 
-            if m != 0:
-                cur_seq = self.G(cur_seq)
-                pred_y.append(cur_seq[:, :m])
-            
-            pred_y = torch.cat(pred_y, dim=1)
+        pred_y = torch.cat(pred_y, dim=1)
         return pred_y
 
     @torch.no_grad()
@@ -493,7 +515,7 @@ class Trainer(object):
                 break
 
             batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
-            pred_y = self.G(batch_x)
+            pred_y = self._predict(batch_x)
             list(map(lambda data, lst: lst.append(data.detach().cpu().numpy()), [
                  pred_y, batch_y], [preds_lst, trues_lst]))
 
@@ -519,7 +541,7 @@ class Trainer(object):
         for batch_x, batch_y in self.test_loader:
             batch_x = batch_x.to(self.device)
             batch_y = batch_y.to(self.device)
-            pred_y = self.G(batch_x.to(self.device))
+            pred_y = self._predict(batch_x.to(self.device))
             break
 
         batch_x = batch_x[0]
@@ -541,6 +563,15 @@ class Trainer(object):
         else:
             save_image(batch_x.data, os.path.join(path_to_epoch, "inputs.png"), nrow=self.pre_seq_length)
             save_image(outputs_and_expectations.data, os.path.join(path_to_epoch, "outputs_and_expectations.png"), nrow=self.aft_seq_length)
+
+        single_files_path = os.path.join(path_to_epoch,'singles')
+        check_dir(single_files_path)
+
+        for index, predicted in enumerate(pred_y.data):
+            save_image(predicted, os.path.join(single_files_path, f"predicted_{index + 1}.png"), nrow=1)
+
+        for index, expected in enumerate(batch_y.data):
+            save_image(expected, os.path.join(single_files_path, f"expected_{index + 1}.png"), nrow=1)
         self.G.train()
     
     def get_target_label(self, input, target_is_real):
