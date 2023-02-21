@@ -327,8 +327,8 @@ class Trainer(object):
                 
                 for _ in range(self.aft_seq_length):
                     pred_y = self.G(cur_seq)
-                    cur_seq = torch.vstack((cur_seq[:,:1], pred_y))
-                    expected = torch.vstack((batch_x.clone()[:,:1], batch_y.clone()[:,:1]))
+                    cur_seq = torch.vstack((cur_seq.clone()[:,1:], pred_y.clone()[:,:1]))
+                    expected = torch.vstack((batch_x.clone()[:,1:], batch_y.clone()[:,:1]))
 
                     g_s_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(cur_seq), transpose=False)  # Spatial Discrimminator loss
                     g_t_out_fake = self.D_t(cur_seq)  # Temporal Discriminator loss
@@ -500,11 +500,7 @@ class Trainer(object):
         for _ in range(self.aft_seq_length):
             output = self.G(cur_seq)[:,:1]
             pred_y.append(output)
-            print(cur_seq.shape)
-            cur_seq = torch.vstack((cur_seq.clone()[:,:1], output.clone()))
-            print(cur_seq.clone()[:,:1].shape)
-            print(output.clone().shape)
-            print(cur_seq.shape)
+            cur_seq = torch.vstack((cur_seq.clone()[:,1:], output.clone()))
 
         pred_y = torch.cat(pred_y, dim=1)
         return pred_y
