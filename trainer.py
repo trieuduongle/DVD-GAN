@@ -500,7 +500,7 @@ class Trainer(object):
         for _ in range(self.aft_seq_length):
             output = self.G(cur_seq)[:,:1]
             pred_y.append(output)
-            cur_seq = torch.vstack(cur_seq.clone()[:,:1], output.clone())
+            cur_seq = torch.vstack((cur_seq.clone()[:,:1], output.clone()))
 
         pred_y = torch.cat(pred_y, dim=1)
         return pred_y
