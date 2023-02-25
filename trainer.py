@@ -157,25 +157,19 @@ class Trainer(object):
 
         self.g_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.G.parameters()), self.g_lr,
                                             (self.beta1, self.beta2))
-        self.ds_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.D_s.parameters()), self.ds_lr,
-                                             (self.beta1, self.beta2))
         self.dt_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.D_t.parameters()), self.dt_lr,
                                              (self.beta1, self.beta2))
         if self.lr_schr == 'const':
             self.g_lr_scher = StepLR(self.g_optimizer, step_size=10000, gamma=1)
-            self.ds_lr_scher = StepLR(self.ds_optimizer, step_size=10000, gamma=1)
             self.dt_lr_scher = StepLR(self.dt_optimizer, step_size=10000, gamma=1)
         elif self.lr_schr == 'step':
             self.g_lr_scher = StepLR(self.g_optimizer, step_size=500, gamma=0.98)
-            self.ds_lr_scher = StepLR(self.ds_optimizer, step_size=500, gamma=0.98)
             self.dt_lr_scher = StepLR(self.dt_optimizer, step_size=500, gamma=0.98)
         elif self.lr_schr == 'exp':
             self.g_lr_scher = ExponentialLR(self.g_optimizer, gamma=0.9999)
-            self.ds_lr_scher = ExponentialLR(self.ds_optimizer, gamma=0.9999)
             self.dt_lr_scher = ExponentialLR(self.dt_optimizer, gamma=0.9999)
         elif self.lr_schr == 'multi':
             self.g_lr_scher = MultiStepLR(self.g_optimizer, [10000, 30000], gamma=0.3)
-            self.ds_lr_scher = MultiStepLR(self.ds_optimizer, [10000, 30000], gamma=0.3)
             self.dt_lr_scher = MultiStepLR(self.dt_optimizer, [10000, 30000], gamma=0.3)
         elif self.lr_schr == 'onecycle':
             if self.pretrained_model:
@@ -185,10 +179,6 @@ class Trainer(object):
             total = self.total_epoch - start
             self.g_lr_scher = OneCycleLR(self.g_optimizer,
                                          max_lr=self.g_lr,
-                                         steps_per_epoch=len(self.train_loader),
-                                         epochs=total)
-            self.ds_lr_scher = OneCycleLR(self.ds_optimizer,
-                                         max_lr=self.ds_lr,
                                          steps_per_epoch=len(self.train_loader),
                                          epochs=total)
             self.dt_lr_scher = OneCycleLR(self.dt_optimizer,
@@ -202,12 +192,6 @@ class Trainer(object):
                                                 cooldown=0, min_lr=1e-10, eps=1e-08,
                                                 verbose=True
                             )
-            self.ds_lr_scher = ReduceLROnPlateau(self.ds_optimizer, mode='min',
-                                                 factor=self.lr_decay, patience=100,
-                                                 threshold=0.0001, threshold_mode='rel',
-                                                 cooldown=0, min_lr=1e-10, eps=1e-08,
-                                                 verbose=True
-                             )
             self.dt_lr_scher = ReduceLROnPlateau(self.dt_optimizer, mode='min',
                                                  factor=self.lr_decay, patience=100,
                                                  threshold=0.0001, threshold_mode='rel',
@@ -231,19 +215,14 @@ class Trainer(object):
         for epoch in range(start, self.total_epoch):
             start_time = time.time()
 
-            list_ds_loss_real = []
-            list_ds_loss_fake = []
-            list_ds_loss = []
             list_dt_loss_real = []
             list_dt_loss_fake = []
             list_dt_loss = []
-            list_g_s_loss = []
             list_g_t_loss = []
             list_g_loss = []
             list_non_g_loss = []
             list_loss = []
 
-            self.D_s.train()
             self.D_t.train()
             self.G.train()
             
@@ -258,24 +237,6 @@ class Trainer(object):
 
                     # ============= Generate fake video ============== #
                     pred_y = self._predict(batch_x)
-
-                    # ================== Train D_s ================== #
-                    ds_out_real = self.D_s(self.merge_temporal_dim_to_batch_dim(batch_y), transpose=False)
-                    ds_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y.detach()), transpose=False)
-                    ds_loss_real = self.calc_loss(ds_out_real, True, self.ds_criterion)
-                    ds_loss_fake = self.calc_loss(ds_out_fake, False, self.ds_criterion)
-
-                    # Backward + Optimize
-                    ds_loss = ds_loss_real + ds_loss_fake
-
-                    list_ds_loss.append(ds_loss.item())
-                    list_ds_loss_real.append(ds_loss_real.item())
-                    list_ds_loss_fake.append(ds_loss_fake.item())
-
-                    self.reset_grad()
-                    ds_loss.backward()
-                    self.ds_optimizer.step()
-                    self.ds_lr_scher.step()
 
                     # ================== Train D_t ================== #
                     dt_out_real = self.D_t(batch_y)
@@ -321,15 +282,12 @@ class Trainer(object):
                 # =========== Train G and Gumbel noise =========== #
                 # Compute loss with fake images
                 pred_y = self._predict(batch_x)
-                g_s_out_fake = self.D_s(self.merge_temporal_dim_to_batch_dim(pred_y), transpose=False)  # Spatial Discrimminator loss
                 g_t_out_fake = self.D_t(pred_y)  # Temporal Discriminator loss
-                g_s_loss = self.calc_loss(g_s_out_fake, True, self.ds_criterion)
                 g_t_loss = self.calc_loss(g_t_out_fake, True, self.dt_criterion)
-                g_loss = self.lambda_d_s * g_s_loss + self.lambda_d_t * g_t_loss
+                g_loss = self.lambda_d_t * g_t_loss
                 non_g_loss = self.g_criterion(pred_y, batch_y)
                 loss = non_g_loss + g_loss
 
-                list_g_s_loss.append(g_s_loss.item())
                 list_g_t_loss.append(g_t_loss.item())
                 list_g_loss.append(g_loss.item())
                 list_non_g_loss.append(non_g_loss.item())
@@ -343,18 +301,14 @@ class Trainer(object):
                 self.g_lr_scher.step()
 
                 train_pbar.set_description(
-                    f"""ds_loss: {ds_loss:.9f}, dt_loss: {dt_loss:.9f}, g_s_loss: {g_s_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {loss:.9f}, non_g_loss: {non_g_loss:.9f}""")
+                    f"""dt_loss: {dt_loss:.9f}, g_t_loss: {g_t_loss:.9f}, g_loss: {loss:.9f}, non_g_loss: {non_g_loss:.9f}""")
 
             # ==================== print & save part ==================== #
             # Print out log info
 
-            ds_loss_real = np.average(list_ds_loss_real)
-            ds_loss_fake = np.average(list_ds_loss_fake)
-            ds_loss = np.average(list_ds_loss)
             dt_loss_real = np.average(list_dt_loss_real)
             dt_loss_fake = np.average(list_dt_loss_fake)
             dt_loss = np.average(list_dt_loss)
-            g_s_loss = np.average(list_g_s_loss)
             g_t_loss = np.average(list_g_t_loss)
             g_loss = np.average(list_g_loss)
             non_g_loss = np.average(list_non_g_loss)
@@ -367,11 +321,11 @@ class Trainer(object):
                 elapsed = str(datetime.timedelta(seconds=elapsed))
                 start_time = time.time()
 
-                log_str = "Epoch: [%d/%d], time: %s, ds_loss: %.9f, dt_loss: %.9f, g_s_loss: %.9f, g_t_loss: %.9f, g_loss: %.9f, non_g_loss: %.9f, loss: %.9f, lr: %.2e, ds_lr: %.2e, dt_lr: %.2e" % \
-                    (epoch, self.total_epoch, elapsed, ds_loss, dt_loss, g_s_loss, g_t_loss, g_loss, non_g_loss, loss, self.g_lr_scher.get_lr()[0], self.ds_lr_scher.get_lr()[0], self.dt_lr_scher.get_lr()[0])
+                log_str = "Epoch: [%d/%d], time: %s, dt_loss: %.9f, g_t_loss: %.9f, g_loss: %.9f, non_g_loss: %.9f, loss: %.9f, lr: %.2e, dt_lr: %.2e" % \
+                    (epoch, self.total_epoch, elapsed, dt_loss, g_t_loss, g_loss, non_g_loss, loss, self.g_lr_scher.get_lr()[0], self.dt_lr_scher.get_lr()[0])
 
                 if self.use_tensorboard is True:
-                    write_log(self.writer, log_str, epoch, ds_loss_real, ds_loss_fake, ds_loss, dt_loss_real, dt_loss_fake, dt_loss, g_loss, non_g_loss, loss)
+                    write_log(self.writer, log_str, epoch, dt_loss_real, dt_loss_fake, dt_loss, g_loss, non_g_loss, loss)
                 print_log(log_str)
 
             # Sample images
@@ -385,11 +339,6 @@ class Trainer(object):
                 torch.save(self.g_optimizer.state_dict(),
                         os.path.join(self.model_save_path, '{}_G_optimizer.pth'.format(epoch)))
 
-                torch.save(self.D_s.state_dict(),
-                        os.path.join(self.model_save_path, '{}_Ds.pth'.format(epoch)))
-                torch.save(self.ds_optimizer.state_dict(),
-                        os.path.join(self.model_save_path, '{}_Ds_optimizer.pth'.format(epoch)))
-
                 torch.save(self.D_t.state_dict(),
                         os.path.join(self.model_save_path, '{}_Dt.pth'.format(epoch)))
                 torch.save(self.dt_optimizer.state_dict(),
@@ -401,7 +350,6 @@ class Trainer(object):
 
         self.G = Generator(tuple(self.in_shape), self.hid_S,
                            self.hid_T, self.N_S, self.N_T).cuda()
-        self.D_s = SNTemporalPatchGANDiscriminator(self.image_channels, conv_by='2d').cuda()
         self.D_t = SNTemporalPatchGANDiscriminator(self.image_channels, conv_by='3d').cuda()
 
         if self.parallel:
@@ -409,7 +357,6 @@ class Trainer(object):
             print_log(f'gpus: {os.environ["CUDA_VISIBLE_DEVICES"]}')
 
             self.G = nn.DataParallel(self.G, device_ids=self.gpus)
-            self.D_s = nn.DataParallel(self.D_s, device_ids=self.gpus)
             self.D_t = nn.DataParallel(self.D_t, device_ids=self.gpus)
 
         # self.G.apply(weights_init)
@@ -435,11 +382,6 @@ class Trainer(object):
         self.g_optimizer.load_state_dict(torch.load(os.path.join(
             self.model_save_path, '{}_G_optimizer.pth'.format(self.pretrained_model))))
 
-        self.D_s.load_state_dict(torch.load(os.path.join(
-            self.model_save_path, '{}_Ds.pth'.format(self.pretrained_model))))
-        self.ds_optimizer.load_state_dict(torch.load(os.path.join(
-            self.model_save_path, '{}_Ds_optimizer.pth'.format(self.pretrained_model))))
-
         self.D_t.load_state_dict(torch.load(os.path.join(
             self.model_save_path, '{}_Dt.pth'.format(self.pretrained_model))))
         self.dt_optimizer.load_state_dict(torch.load(os.path.join(
@@ -448,7 +390,6 @@ class Trainer(object):
         print_log('loaded trained models (epoch: {})..!'.format(self.pretrained_model))
 
     def reset_grad(self):
-        self.ds_optimizer.zero_grad()
         self.dt_optimizer.zero_grad()
         self.g_optimizer.zero_grad()
 
