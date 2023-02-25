@@ -366,7 +366,6 @@ class Trainer(object):
 
         self.c_loss = torch.nn.CrossEntropyLoss()
         self.g_criterion = torch.nn.MSELoss()
-        self.ds_criterion = torch.nn.MSELoss()
         self.dt_criterion = torch.nn.MSELoss()
 
     def build_tensorboard(self):
